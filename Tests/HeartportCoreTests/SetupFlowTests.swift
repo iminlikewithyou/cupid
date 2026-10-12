@@ -171,4 +171,22 @@ final class SetupFlowTests: XCTestCase {
         stalled.add(bytes: 100, at: t0.addingTimeInterval(6))
         XCTAssertEqual(stalled.samples, [.init(time: t0.addingTimeInterval(6), bytes: 100)])
     }
+
+    func testWelcomeOnlyBeforeAnythingIsInstalled() {
+        XCTAssertTrue(SetupPhase.runtime.needsWelcome(runtimeInstalled: false, welcomed: false))
+        XCTAssertTrue(SetupPhase.rosettaMissing.needsWelcome(runtimeInstalled: false, welcomed: false))
+        // A runtime of another version (an update) is not a first run.
+        XCTAssertFalse(SetupPhase.runtime.needsWelcome(runtimeInstalled: true, welcomed: false))
+        XCTAssertFalse(SetupPhase.runtime.needsWelcome(runtimeInstalled: false, welcomed: true))
+        XCTAssertFalse(SetupPhase.prefix(exists: false).needsWelcome(runtimeInstalled: true, welcomed: false))
+        XCTAssertFalse(SetupPhase.ready(.idle).needsWelcome(runtimeInstalled: true, welcomed: false))
+    }
+
+    func testSetupSpace() {
+        XCTAssertEqual(SetupSpace.totalGB, 17)
+        XCTAssertEqual(SetupSpace.totalBytes, 17_000_000_000)
+        XCTAssertTrue(SetupSpace.isShort(available: 16_999_999_999))
+        XCTAssertFalse(SetupSpace.isShort(available: 17_000_000_000))
+        XCTAssertFalse(SetupSpace.isShort(available: nil))
+    }
 }

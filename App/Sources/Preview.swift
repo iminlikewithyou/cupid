@@ -12,10 +12,12 @@ struct Preview {
     var eta: TimeInterval?
     var report: StatusReport?
     var hasLogs = true
+    var welcome = false
+    var freeBytes: Int64? = 250_000_000_000
 
     /// Every name, in setup order.
     static let names = [
-        "checking", "rosetta-missing",
+        "welcome", "welcome-low-space", "checking", "rosetta-missing",
         "runtime", "runtime-installing",
         "windows", "windows-setting-up", "windows-update",
         "taptap-install", "taptap-preparing", "taptap-installing",
@@ -39,6 +41,15 @@ struct Preview {
         var p = Preview(report: sampleReport(installed: name.hasPrefix("ready") || name.hasPrefix("game")
                                                || ["finishing-up", "launch-failed", "notice", "repairing"].contains(name)))
         switch name {
+        case "welcome":
+            p.phase = .runtime
+            p.welcome = true
+            p.hasLogs = false
+        case "welcome-low-space":
+            p.phase = .runtime
+            p.welcome = true
+            p.hasLogs = false
+            p.freeBytes = 9_400_000_000
         case "checking":
             p.phase = nil
             p.hasLogs = false

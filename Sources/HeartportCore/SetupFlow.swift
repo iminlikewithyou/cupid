@@ -203,3 +203,35 @@ public struct DownloadRate: Sendable, Equatable {
         return Double(max(0, remaining)) / rate
     }
 }
+
+/// Disk space for a complete setup, for the welcome screen. Sizes in GB (10^9 bytes), as the
+/// Finder shows them: the runtime archive extracted, Heartopia's TapTap download
+/// (GameFileInfo.json TotalFileSize is 13.9 GB), and TapTap, the Windows environment and caches.
+public enum SetupSpace {
+    public static let runtimeGB = 1.5
+    public static let gameGB = 13.0
+    public static let otherGB = 2.5
+
+    /// Rounded to a whole GB: 17.
+    public static var totalGB: Int { Int((runtimeGB + gameGB + otherGB).rounded()) }
+    public static var totalBytes: Int64 { Int64(totalGB) * 1_000_000_000 }
+
+    /// `available` (volumeAvailableCapacityForImportantUsage) is below a complete setup.
+    public static func isShort(available: Int64?) -> Bool {
+        guard let available else { return false }
+        return available < totalBytes
+    }
+}
+
+extension SetupPhase {
+    /// The welcome screen comes first while nothing is installed (Rosetta missing, or no runtime
+    /// at all) until it is dismissed for this data folder (`AppState.welcomed`).
+    public func needsWelcome(runtimeInstalled: Bool, welcomed: Bool) -> Bool {
+        guard !welcomed else { return false }
+        switch self {
+        case .rosettaMissing: return true
+        case .runtime: return !runtimeInstalled
+        default: return false
+        }
+    }
+}

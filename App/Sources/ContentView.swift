@@ -35,16 +35,25 @@ struct ContentView: View {
         VStack(spacing: 0) {
             HeroHeader()
                 .padding(.top, 40) // clears the traffic lights
-            StepDots(current: model.step)
-                .padding(.top, 24)
-                .padding(.horizontal, 8)
-            StepCard(model: model)
-                .padding(.top, 24)
+            if model.welcome {
+                WelcomeCard(model: model)
+                    .padding(.top, 24)
+            } else {
+                StepDots(current: model.step)
+                    .padding(.top, 24)
+                    .padding(.horizontal, 8)
+                StepCard(model: model)
+                    .padding(.top, 24)
+            }
             Callouts(model: model)
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 24)
-        .frame(width: Self.size.width, height: Self.size.height, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        // The welcome window hugs this height; the other steps use the fixed 600.
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { model.contentHeight = $0 }
+        .frame(width: Self.size.width)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background { Backdrop() }
         .ignoresSafeArea()
         .tint(Brand.accent)
@@ -146,6 +155,53 @@ private struct StepDots: View {
 
 // MARK: - Step card
 
+/// The card's material, edge and shadow (step card and welcome card).
+private struct CardChrome: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.07), radius: 16, y: 6)
+    }
+}
+
+/// First run: what setup involves and how much space it needs, before any step's own card.
+private struct WelcomeCard: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Welcome to Heartport")
+                    .font(.title2.weight(.semibold))
+                Text("Heartport sets up everything Heartopia needs on this Mac in four steps. Two of them happen in TapTap's own windows and need a few clicks from you; the rest is automatic. Allow about 15 minutes plus the game download.")
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                DetailRow("internaldrive", "About \(SetupSpace.totalGB) GB of free space in total, mostly the game")
+                if SetupSpace.isShort(available: model.freeBytes), let free = model.freeBytes {
+                    StatusRow(ok: false, "This Mac has \(free / 1_000_000_000) GB free; setup needs about \(SetupSpace.totalGB) GB")
+                }
+            }
+            HStack {
+                Spacer(minLength: 0)
+                Button("Get Started") { model.getStarted() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .modifier(CardChrome())
+    }
+}
+
 private struct CardAction {
     var title: String
     var systemImage: String?
@@ -180,15 +236,7 @@ private struct StepCard: View {
             progress
             bottomRow
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 20)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.07), radius: 16, y: 6)
+        .modifier(CardChrome())
         // With keyboard navigation on, start on the action Return triggers, not the quiet one.
         .defaultFocus($focus, .primary)
         .task(id: model.phase) {

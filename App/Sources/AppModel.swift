@@ -50,6 +50,22 @@ final class AppModel: ObservableObject {
     /// Seconds left in the TapTap download, once the rate is known.
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
+    /// The first-run welcome screen is up (SetupPhase.needsWelcome).
+    @Published private(set) var welcome = false {
+        didSet { if welcome != oldValue { resizeWindow(windowHeight, oldValue && windowIsVisible()) } }
+    }
+    /// Free space on the data folder's volume, for the welcome screen's warning.
+    @Published private(set) var freeBytes: Int64?
+    private var welcomeDismissed = false
+    /// The window content's natural height, reported by ContentView; the welcome window hugs it.
+    var contentHeight: CGFloat = 0 {
+        didSet { if welcome, abs(contentHeight - oldValue) > 0.5 { resizeWindow(windowHeight, false) } }
+    }
+    /// The welcome window's height before ContentView has measured it.
+    static let welcomeHeightEstimate: CGFloat = 480
+    var windowHeight: CGFloat {
+        welcome ? (contentHeight > 0 ? contentHeight : Self.welcomeHeightEstimate) : ContentView.size.height
+    }
     /// HEARTPORT_PREVIEW_PHASE: a fixed sample state for screenshots. Nothing is polled or run.
     private(set) var previewing = false
     private var previewHasLogs: Bool?
@@ -57,6 +73,8 @@ final class AppModel: ObservableObject {
     /// Window plumbing, set by the AppDelegate.
     var showWindow: () -> Void = {}
     var hideWindow: () -> Void = {}
+    /// Sets the window's content height, keeping its top edge (animated when asked).
+    var resizeWindow: (CGFloat, Bool) -> Void = { _, _ in }
     var windowIsVisible: () -> Bool = { false }
     var presentAlert: (NSAlert, @escaping (Bool) -> Void) -> Void = { alert, done in
         done(alert.runModal() == .alertFirstButtonReturn)
@@ -97,6 +115,8 @@ final class AppModel: ObservableObject {
         downloadETA = preview.eta
         hud = preview.report?.state.hud ?? false
         previewHasLogs = preview.hasLogs
+        freeBytes = preview.freeBytes
+        welcome = preview.welcome
         // After launch finishes, as the real first refresh does, so the window becomes key.
         DispatchQueue.main.async { MainActor.assumeIsolated { self.showWindow() } }
     }
@@ -133,6 +153,9 @@ final class AppModel: ObservableObject {
         report = new
         phase = new.phase
         hud = new.state.hud ?? false
+        freeBytes = Self.availableBytes(near: paths.dataRoot)
+        welcome = !welcomeDismissed && (phase?.needsWelcome(runtimeInstalled: new.runtime.installedVersion != nil,
+                                                            welcomed: new.state.welcomed == true) ?? false)
         if case .download(let d)? = phase, let have = d.bytesOnDisk, let total = d.totalBytes {
             downloadRate.add(bytes: have, at: Date())
             downloadETA = downloadRate.eta(remaining: total - have)
@@ -225,6 +248,27 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: setup states
+
+    /// "Get Started": the welcome screen never returns for this data folder.
+    func getStarted() {
+        welcomeDismissed = true
+        if !previewing {
+            do { try AppState.update(paths) { $0.welcomed = true } } catch {
+                Logs.append(paths, "app: could not save welcomed: \(Self.message(error))")
+            }
+        }
+        welcome = false
+    }
+
+    /// volumeAvailableCapacityForImportantUsage of the volume `url` is on (or will be on).
+    static func availableBytes(near url: URL) -> Int64? {
+        var target = url
+        while !FileManager.default.fileExists(atPath: target.path), target.pathComponents.count > 1 {
+            target = target.deletingLastPathComponent()
+        }
+        return (try? target.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage
+    }
 
     func openRosettaInstructions() {
         guard !previewing else { return }

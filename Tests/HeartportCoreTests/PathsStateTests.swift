@@ -119,4 +119,16 @@ final class SessionTests: XCTestCase {
         // Prefix changes refuse while it lives.
         XCTAssertThrowsError(try PrefixSetup(paths: paths).apply([.winecfgWin10]))
     }
+
+    func testWelcomedRoundTripsAndDefaultsToAbsent() throws {
+        let root = try tempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = Paths(dataRoot: root)
+        XCTAssertNil(AppState.load(paths).welcomed)
+        let spike = try AppState.decode(Data(#"{"runtime":"r","prefix":"created"}"#.utf8))
+        XCTAssertNil(spike.welcomed)
+        try AppState.update(paths) { $0.welcomed = true }
+        XCTAssertEqual(AppState.load(paths).welcomed, true)
+        XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""welcomed" : true"#))
+    }
 }

@@ -16,6 +16,8 @@ public struct AppState: Codable, Sendable, Equatable {
     public var taptapInstalled: Bool?
     public var gameInstalled: Bool?
     public var lastLaunch: String?
+    /// The app's welcome screen was dismissed ("Get Started") for this data folder.
+    public var welcomed: Bool?
 
     public init() {}
 

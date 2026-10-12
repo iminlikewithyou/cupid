@@ -48,6 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             NSApp.activate()
         }
         model.hideWindow = { [weak self] in self?.window.orderOut(nil) }
+        model.resizeWindow = { [weak self] height, animated in
+            guard let window = self?.window else { return }
+            let content = window.contentRect(forFrameRect: window.frame)
+            guard abs(content.height - height) > 0.5 else { return }
+            // Keep the top edge where it is (the title bar stays under the pointer).
+            let rect = NSRect(x: content.minX, y: content.maxY - height, width: content.width, height: height)
+            window.setFrame(window.frameRect(forContentRect: rect), display: true, animate: animated)
+        }
         model.windowIsVisible = { [weak self] in self?.window.isVisible == true }
         model.presentAlert = { [weak self] alert, done in
             if let window = self?.window, window.isVisible {
