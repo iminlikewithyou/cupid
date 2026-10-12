@@ -180,7 +180,7 @@ private struct WelcomeCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Welcome to Heartport")
                     .font(.title2.weight(.semibold))
-                Text("Heartport sets up everything Heartopia needs on this Mac in four steps. Two of them happen in TapTap's own windows and need a few clicks from you; the rest is automatic. Allow about 15 minutes plus the game download.")
+                Text("Heartport sets up everything Heartopia needs on this Mac in a few steps. Two of them happen in TapTap's own windows and need a few clicks from you; the rest is automatic. Allow about 15 minutes plus the game download.")
                     .font(.body)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -623,7 +623,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Metal performance HUD", isOn: Binding(get: { model.hud }, set: { model.setHUD($0) }))
+                Toggle("Performance overlay", isOn: Binding(get: { model.hud }, set: { model.setHUD($0) }))
             } footer: {
                 Text("Shows frame rate, GPU time and Game Mode status in a corner of Heartopia. Takes effect the next time the game starts.")
                     .font(.footnote)
