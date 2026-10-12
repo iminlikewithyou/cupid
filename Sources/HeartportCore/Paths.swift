@@ -21,8 +21,9 @@ public enum Game {
 /// `~/Library/Application Support/Heartport` and may be overridden (tests, `--data`,
 /// `HEARTPORT_DATA_ROOT`).
 public struct Paths: Sendable, Equatable {
-    /// Recall 1.3.0's runtime version (runtime.json "version").
-    public static let defaultRuntimeVersion = "phase2-20261007.3"
+    /// The runtime version this process installs and uses (runtime.json "version"): Recall 1.3.0's,
+    /// or that of a bundled archive's `runtime-archive.json` (`RuntimeArchiveDescriptor.current`).
+    public static var defaultRuntimeVersion: String { RuntimeArchiveDescriptor.current.version }
 
     /// Environment variables that override the data root, in priority order.
     public static let dataRootVariables = ["HEARTPORT_DATA_ROOT"]

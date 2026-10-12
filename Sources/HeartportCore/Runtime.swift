@@ -6,6 +6,79 @@ public enum RecallRelease {
     public static let dmgSHA256 = "dbe066d52fc41825b4d0afc146a0d81561c6e729319f8939a2de2a733bef2b16"
     public static let tarballInDMG = "Recall.app/Contents/Resources/runtime.tar.gz"
     public static let tarballSHA256 = "66ce2eabdbe14572d4bcb485321570bdd1128647aa64f6111642f9f073f92c34"
+    /// runtime.json "version" of that tarball.
+    public static let runtimeVersion = "phase2-20261007.3"
+    public static let minimumMacOS = "15.0"
+}
+
+/// What a runtime archive must be: its version, sha256 and minimum macOS. Recall 1.3.0's tarball
+/// unless a `runtime-archive.json` sits next to the archive (Heartport's own runtime builds,
+/// scripts/runtime/assemble_portable_runtime.py writes one). The descriptor is trusted as much as
+/// the archive beside it: both come from the same place.
+public struct RuntimeArchiveDescriptor: Codable, Sendable, Equatable {
+    public let version: String
+    public let sha256: String
+    public let minimumMacOS: String?
+
+    enum CodingKeys: String, CodingKey {
+        case version, sha256
+        case minimumMacOS = "minimum_macos"
+    }
+
+    public init(version: String, sha256: String, minimumMacOS: String? = nil) {
+        self.version = version; self.sha256 = sha256; self.minimumMacOS = minimumMacOS
+    }
+
+    public static let fileName = "runtime-archive.json"
+    public static let recall = RuntimeArchiveDescriptor(version: RecallRelease.runtimeVersion,
+                                                        sha256: RecallRelease.tarballSHA256,
+                                                        minimumMacOS: RecallRelease.minimumMacOS)
+
+    /// The version names a directory under `runtime/`, so it must be a plain name.
+    static func isValidVersion(_ v: String) -> Bool {
+        v.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil && v != "." && v != ".."
+    }
+
+    static func isValidSHA256(_ s: String) -> Bool {
+        s.range(of: #"^[0-9a-f]{64}$"#, options: .regularExpression) != nil
+    }
+
+    /// `runtime-archive.json` next to `archive`, or nil when there is none. Throws when it exists
+    /// but is unreadable or names an invalid version or sha256.
+    public static func beside(_ archive: URL) throws -> RuntimeArchiveDescriptor? {
+        let url = archive.deletingLastPathComponent().appendingPathComponent(fileName)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let d: RuntimeArchiveDescriptor
+        do {
+            let data = try Data(contentsOf: url)
+            guard data.count < 64 << 10 else { throw HeartportError(.runtimeInvalid, "\(url.path) is implausibly large") }
+            d = try JSONDecoder().decode(RuntimeArchiveDescriptor.self, from: data)
+        } catch let error as HeartportError { throw error }
+        catch { throw HeartportError(.runtimeInvalid, "\(url.path) is not valid: \(error)") }
+        guard isValidVersion(d.version) else { throw HeartportError(.runtimeInvalid, "\(url.path): invalid version \"\(d.version)\"") }
+        let sha = d.sha256.lowercased()
+        guard isValidSHA256(sha) else { throw HeartportError(.runtimeInvalid, "\(url.path): invalid sha256 \"\(d.sha256)\"") }
+        return RuntimeArchiveDescriptor(version: d.version, sha256: sha, minimumMacOS: d.minimumMacOS)
+    }
+
+    /// The descriptor for `archive`: its own `runtime-archive.json`, else Recall's.
+    public static func forArchive(_ archive: URL) throws -> RuntimeArchiveDescriptor {
+        try beside(archive) ?? .recall
+    }
+
+    /// The descriptor of the first bundled archive that exists (`HEARTPORT_RUNTIME_ARCHIVE`, the
+    /// app's Resources, a checkout's Resources/runtime), else Recall's. An invalid descriptor
+    /// counts as Recall's here; installing that archive then reports the problem.
+    public static func bundled(environment: [String: String] = ProcessInfo.processInfo.environment,
+                               executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> RuntimeArchiveDescriptor {
+        let found = RuntimeInstaller.bundledArchiveCandidates(environment: environment, executable: executable)
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+        guard let found else { return .recall }
+        return ((try? beside(found)) ?? nil) ?? .recall
+    }
+
+    /// `bundled()` of this process, computed once.
+    public static let current = bundled()
 }
 
 /// Installs and verifies `<data>/runtime/<version>`. Never modifies or re-signs anything in it
@@ -61,6 +134,13 @@ public struct RuntimeInstaller: Sendable {
     /// Candidate locations of a bundled `runtime.tar.gz`, in order.
     public static func archiveCandidates(paths: Paths, environment: [String: String] = ProcessInfo.processInfo.environment,
                                          executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> [URL] {
+        bundledArchiveCandidates(environment: environment, executable: executable)
+            + [paths.downloads.appendingPathComponent("runtime.tar.gz")]
+    }
+
+    /// The candidates that do not depend on the data root (all but the DMG download).
+    public static func bundledArchiveCandidates(environment: [String: String] = ProcessInfo.processInfo.environment,
+                                                executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> [URL] {
         var out: [URL] = []
         if let env = environment["HEARTPORT_RUNTIME_ARCHIVE"], !env.isEmpty { out.append(URL(fileURLWithPath: env)) }
         // In the app: Contents/Helpers/heartport -> Contents/Resources/runtime.tar.gz (PLAN.md layout).
@@ -76,7 +156,6 @@ public struct RuntimeInstaller: Sendable {
             }
             dir = dir.deletingLastPathComponent()
         }
-        out.append(paths.downloads.appendingPathComponent("runtime.tar.gz"))
         return out
     }
 
@@ -122,14 +201,19 @@ public struct RuntimeInstaller: Sendable {
         return tarball
     }
 
-    /// Extract `archive` (sha256-pinned) into a staging directory, verify it against its
-    /// runtime.json, and return the staging directory. The caller moves or discards it.
+    /// Extract `archive` (sha256-pinned by its `RuntimeArchiveDescriptor`) into a staging
+    /// directory, verify it against its runtime.json, and return the staging directory. The
+    /// caller moves or discards it.
     public func extractAndVerify(archive: URL, into staging: URL, log: (String) -> Void = { _ in }) throws -> RuntimeManifest.Report {
         let fm = FileManager.default
+        let pin = try RuntimeArchiveDescriptor.forArchive(archive)
+        guard pin.version == paths.runtimeVersion else {
+            throw HeartportError(.runtimeInvalid, "\(archive.path) is runtime \(pin.version), expected \(paths.runtimeVersion)")
+        }
         log("Checking \(archive.lastPathComponent) sha256")
         let sha = try Hashing.sha256(of: archive)
-        guard sha == RecallRelease.tarballSHA256 else {
-            throw HeartportError(.runtimeInvalid, "\(archive.path): sha256 \(sha) does not match \(RecallRelease.tarballSHA256)")
+        guard sha == pin.sha256 else {
+            throw HeartportError(.runtimeInvalid, "\(archive.path): sha256 \(sha) does not match \(pin.sha256)")
         }
         try? fm.removeItem(at: staging)
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
