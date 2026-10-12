@@ -3,3 +3,4 @@
 Resources/runtime/
 *.xcodeproj/
 .DS_Store
+build/

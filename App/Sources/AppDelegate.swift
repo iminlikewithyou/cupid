@@ -1,0 +1,142 @@
+import AppKit
+import HeartportCore
+import SwiftUI
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
+    let model: AppModel
+    private var window: NSWindow!
+    private var settingsWindow: NSWindow?
+
+    override init() {
+        let env = ProcessInfo.processInfo.environment
+        // HEARTPORT_DATA_ROOT picks another data root; HEARTPORT_NO_AUTOPLAY=1 keeps the window up
+        // in the ready state instead of starting the game.
+        let paths = Paths.resolve()
+        model = AppModel(paths: paths, autoLaunch: env["HEARTPORT_NO_AUTOPLAY"] != "1")
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = buildMenu()
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
+                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window.title = "Heartport"
+        window.isReleasedWhenClosed = false
+        window.contentView = NSHostingView(rootView: ContentView(model: model))
+        window.center()
+        window.setFrameAutosaveName("HeartportMain")
+
+        model.showWindow = { [weak self] in
+            guard let self else { return }
+            self.window.makeKeyAndOrderFront(nil)
+            NSApp.activate()
+        }
+        model.hideWindow = { [weak self] in self?.window.orderOut(nil) }
+        model.windowIsVisible = { [weak self] in self?.window.isVisible == true }
+        model.presentAlert = { [weak self] alert, done in
+            if let window = self?.window, window.isVisible {
+                alert.beginSheetModal(for: window) { done($0 == .alertFirstButtonReturn) }
+            } else {
+                done(alert.runModal() == .alertFirstButtonReturn)
+            }
+        }
+        model.start()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { model.showWindow(); model.refresh() }
+        return true
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // MARK: menu
+
+    private func buildMenu() -> NSMenu {
+        let main = NSMenu()
+        func item(_ title: String, _ action: Selector?, _ key: String = "", _ mods: NSEvent.ModifierFlags = [.command]) -> NSMenuItem {
+            let i = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            i.keyEquivalentModifierMask = mods
+            return i
+        }
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Heartport")
+        appMenu.addItem(item("About Heartport", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("Settings…", #selector(openSettings(_:)), ","))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("Play", #selector(play(_:)), "p"))
+        appMenu.addItem(item("Update Game", #selector(updateGame(_:))))
+        appMenu.addItem(item("Reset Graphics…", #selector(resetGraphics(_:))))
+        appMenu.addItem(item("Show Logs", #selector(showLogs(_:)), "l"))
+        appMenu.addItem(item("Repair…", #selector(repair(_:))))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("Uninstall…", #selector(uninstall(_:))))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("Hide Heartport", #selector(NSApplication.hide(_:)), "h"))
+        appMenu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
+        appMenu.addItem(item("Show All", #selector(NSApplication.unhideAllApplications(_:))))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("Quit Heartport", #selector(NSApplication.terminate(_:)), "q"))
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(item("Copy", #selector(NSText.copy(_:)), "c"))
+        edit.addItem(item("Select All", #selector(NSText.selectAll(_:)), "a"))
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(item("Heartport", #selector(showMain(_:)), "0"))
+        windowMenu.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
+        windowMenu.addItem(item("Close", #selector(NSWindow.performClose(_:)), "w"))
+        windowItem.submenu = windowMenu
+        main.addItem(windowItem)
+        NSApp.windowsMenu = windowMenu
+        return main
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.action {
+        case #selector(play(_:)):
+            if case .ready? = model.phase { return !model.busy }
+            return false
+        case #selector(updateGame(_:)):
+            return !model.busy && model.report?.taptap.launcherInstalled == true
+        case #selector(resetGraphics(_:)):
+            return !model.busy && model.report?.prefix.exists == true
+        case #selector(repair(_:)), #selector(uninstall(_:)):
+            return !model.busy
+        default:
+            return true
+        }
+    }
+
+    @objc func showMain(_ sender: Any?) { model.showWindow(); model.refresh() }
+    @objc func play(_ sender: Any?) { model.play() }
+    @objc func updateGame(_ sender: Any?) { model.showWindow(); model.updateGame() }
+    @objc func resetGraphics(_ sender: Any?) { model.resetGraphics() }
+    @objc func showLogs(_ sender: Any?) { model.showLogs() }
+    @objc func repair(_ sender: Any?) { model.repair() }
+    @objc func uninstall(_ sender: Any?) { model.uninstall() }
+
+    @objc func openSettings(_ sender: Any?) {
+        if settingsWindow == nil {
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 170),
+                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            w.title = "Settings"
+            w.isReleasedWhenClosed = false
+            w.contentView = NSHostingView(rootView: SettingsView(model: model))
+            w.center()
+            settingsWindow = w
+        }
+        model.refresh()
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+}

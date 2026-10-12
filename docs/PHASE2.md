@@ -1,4 +1,4 @@
-# Phase 2 brief: Mactopia core, CLI and app
+# Phase 2 brief: Heartport core, CLI and app
 
 Read `docs/PLAN.md` for the design and `docs/SPIKE.md` for what the spike proved on
 2026-10-11. This document is the implementation brief. Everything below was verified on
@@ -6,7 +6,7 @@ the owner's M2 Max, macOS 26.6.2, unless marked "assumed".
 
 ## Outcome
 
-A signed macOS app, `Mactopia.app`, that on first run installs Recall's runtime,
+A signed macOS app, `Heartport.app`, that on first run installs Recall's runtime,
 builds a Wine prefix, installs the TapTap Global client, downloads Heartopia, and from
 then on launches the game directly with the settings below. Its window shows only
 setup states. Nothing in it touches Steam.
@@ -14,10 +14,10 @@ setup states. Nothing in it touches Steam.
 ## Layout
 
 ```
-Mactopia/                                  Swift package + app sources
+Heartport/                                  Swift package + app sources
 ├── Package.swift
-├── Sources/MactopiaCore/                  all logic, no UI, testable
-├── Sources/mactopia/                      CLI: setup | play | status | stop | update | uninstall | logs
+├── Sources/HeartportCore/                  all logic, no UI, testable
+├── Sources/heartport/                      CLI: setup | play | status | stop | update | uninstall | logs
 ├── App/                                   AppKit/SwiftUI shell (thin)
 ├── Resources/
 │   ├── runtime/                           NOT in git: fetched by scripts/fetch-runtime.sh
@@ -30,7 +30,7 @@ Mactopia/                                  Swift package + app sources
 └── docs/
 ```
 
-Data root: `~/Library/Application Support/Mactopia/` with `runtime/<version>/`,
+Data root: `~/Library/Application Support/Heartport/` with `runtime/<version>/`,
 `prefix/`, `cache/shaders`, `cache/pipelines`, `home/`, `tmp/`, `logs/`, `downloads/`,
 `dxmt.conf`, `state.json`. The spike already created this layout; the product must
 adopt an existing one rather than rebuild it.
@@ -43,7 +43,7 @@ adopt an existing one rather than rebuild it.
   verify every entry of `runtime.json` (sha256 and bytes), refuse unlisted files. Never
   modify or re-sign any Mach-O in it. Copy with `ditto`.
 - Add `lib/wine/game-mode/xdt.app` generated from the runtime's own loader by
-  `make-game-mode-app.py` (identifier `app.mactopia.heartopia`, name Heartopia,
+  `make-game-mode-app.py` (identifier `app.heartport.heartopia`, name Heartopia,
   category `public.app-category.simulation-games`, ad hoc signed until a Developer ID
   exists). `codesign --verify --strict --deep` must pass.
 - Licenses: ship Recall's `licenses/` tree plus Recall's NOTICE and Apache-2.0 text, as
@@ -213,7 +213,7 @@ reference implementation and may be re-implemented, not copied (PolyForm license
 
 ## Order of work
 
-1. `MactopiaCore` + CLI with `setup` (runtime, prefix, seeds), `play`, `stop`, `status`.
+1. `HeartportCore` + CLI with `setup` (runtime, prefix, seeds), `play`, `stop`, `status`.
    Reuse the spike scripts as the behavioural spec; delete them when the CLI covers them.
 2. TapTap install and download states in the CLI.
 3. App shell over the CLI's core.
