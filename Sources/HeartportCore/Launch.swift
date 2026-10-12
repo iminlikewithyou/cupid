@@ -77,10 +77,13 @@ public struct GameLauncher: Sendable {
                 return Result(winePID: pid, game: g, window: window, log: gameLog)
             }
             if game == nil, kill(pid, 0) != 0, !snap.isAlive {
-                throw HeartportError(.process, "Wine exited before Heartopia's window appeared (see \(gameLog.path)).")
+                // The message is shown in the app's window: no paths there; the log has them.
+                Logs.append(paths, "play: wine exited before Heartopia's window appeared; see \(gameLog.path)")
+                throw HeartportError(.process, "The game closed before its window appeared.")
             }
             Thread.sleep(forTimeInterval: 1)
         }
-        throw HeartportError(.timeout, "No Heartopia window after \(Int(options.windowTimeout)) s (game pid: \(game.map { String($0.pid) } ?? "none"); see \(gameLog.path)).")
+        Logs.append(paths, "play: no Heartopia window after \(Int(options.windowTimeout)) s (game pid: \(game.map { String($0.pid) } ?? "none")); see \(gameLog.path)")
+        throw HeartportError(.timeout, "No game window appeared within \(Int(options.windowTimeout)) seconds.")
     }
 }

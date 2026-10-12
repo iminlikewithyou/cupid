@@ -8,6 +8,11 @@ enum Operations {
         let f = ByteCountFormatter(); f.countStyle = .file; return f.string(fromByteCount: n)
     }
 
+    /// Technical progress lines (file names, versions, registry keys) go to the log, not the window.
+    static func detail(_ paths: Paths) -> @Sendable (String) -> Void {
+        { Logs.append(paths, "app: " + $0) }
+    }
+
     static func byteProgress(_ r: Reporter, _ label: String) -> Downloader.Progress {
         { received, expected in
             if let expected, expected > 0 {
@@ -31,7 +36,7 @@ enum Operations {
             guard version == paths.runtimeVersion else {
                 throw HeartportError(.runtimeInvalid, "The installed runtime is version \(version ?? "?"), expected \(paths.runtimeVersion). Use Repair to reinstall it.")
             }
-            r.line("Checking the Game Mode bundle")
+            r.line("Checking the game runtime")
             try installer.ensureGameModeBundle()
             try AppState.update(paths) { $0.runtime = paths.runtimeVersion }
             return
@@ -41,17 +46,17 @@ enum Operations {
         if let found = RuntimeInstaller.locateArchive(paths: paths) {
             archive = found
         } else {
-            r.line("Downloading Recall 1.3.0")
-            archive = try installer.fetchArchiveFromDMG(progress: byteProgress(r, "Recall-1.3.0.dmg"), log: { r.line($0) })
+            r.line("Downloading the game runtime")
+            archive = try installer.fetchArchiveFromDMG(progress: byteProgress(r, "Game runtime"), log: detail(paths))
             r.fraction(nil)
         }
         try r.checkCancelled()
-        try installer.install(archive: archive, replace: replace, log: { r.line($0) })
-        r.line("Checking the Wine loader signatures")
+        r.line("Installing the game runtime")
+        try installer.install(archive: archive, replace: replace, log: detail(paths))
+        r.line("Checking the game runtime")
         try installer.verifyLoaderSignatures()
-        r.line("Creating the Game Mode bundle")
         try installer.ensureGameModeBundle()
-        r.line("wine --version: \(try Wine(paths: paths).version())")
+        Logs.append(paths, "app: wine --version: \(try Wine(paths: paths).version())")
         try AppState.update(paths) { $0.runtime = paths.runtimeVersion }
         Logs.append(paths, "app: runtime \(paths.runtimeVersion) installed")
     }
@@ -63,7 +68,7 @@ enum Operations {
         guard !steps.isEmpty else { r.line("Windows environment up to date"); return }
         try SessionGuard.requireIdle(paths, to: "change the Wine prefix")
         r.line(setup.exists ? "Updating the Windows environment" : "Creating the Windows environment (about a minute)")
-        try setup.apply(steps, log: { r.line($0) })
+        try setup.apply(steps, log: detail(paths))
     }
 
     /// `setup --repair` plus a full md5 check of the game. Returns a summary.
@@ -71,7 +76,8 @@ enum Operations {
         try SessionGuard.requireIdle(paths, to: "repair")
         var summary: [String] = []
         try installRuntimeIfNeeded(paths, r, replace: true)
-        summary.append("Runtime \(paths.runtimeVersion) reinstalled and verified.")
+        Logs.append(paths, "app: repair: runtime \(paths.runtimeVersion) reinstalled and verified")
+        summary.append("Game runtime reinstalled.")
         try r.checkCancelled()
         try setUpPrefixIfNeeded(paths, r)
         summary.append("Windows environment checked.")
@@ -93,11 +99,13 @@ enum Operations {
                                        isCancelled: { r.isCancelled })
         try r.checkCancelled()
         if check.ok {
-            summary.append("All \(check.listed) Heartopia files match TapTap's manifest (\(check.md5Checked) md5 sums checked, \(check.signedPE.count) signed executables accepted by size).")
+            Logs.append(paths, "app: repair: all \(check.listed) files match GameFileInfo.json (\(check.md5Checked) md5 sums checked, \(check.signedPE.count) signed executables accepted by size)")
+            summary.append("All \(check.listed) game files are intact.")
             try AppState.update(paths) { $0.gameInstalled = true }
         } else {
             let bad = check.missing.count + check.wrongSize.count + check.md5Mismatch.count
-            summary.append("\(bad) Heartopia file(s) are missing or damaged (\(check.missing.count) missing, \(check.wrongSize.count) wrong size, \(check.md5Mismatch.count) md5 differ). Use Update Game and TapTap's repair to fetch them again.")
+            Logs.append(paths, "app: repair: \(check.missing.count) missing, \(check.wrongSize.count) wrong size, \(check.md5Mismatch.count) md5 differ")
+            summary.append("\(bad) game file(s) are missing or damaged. Use Update Game and TapTap's repair to fetch them again.")
             Logs.append(paths, "app: repair found damaged files: " + (check.missing + check.wrongSize + check.md5Mismatch).prefix(50).joined(separator: ", "))
         }
         Logs.append(paths, "app: repair done")

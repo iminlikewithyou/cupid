@@ -83,10 +83,6 @@ final class AppModel: ObservableObject {
     /// The step dot the window highlights.
     var step: SetupStep? { phase?.step }
 
-    /// When Heartopia was last started (state.json `lastLaunch`).
-    var lastPlayed: Date? {
-        report?.state.lastLaunch.flatMap { ISO8601DateFormatter().date(from: $0) }
-    }
 
     // MARK: status
 
@@ -168,7 +164,7 @@ final class AppModel: ObservableObject {
 
     // MARK: running work off the main thread
 
-    func perform<T: Sendable>(_ title: String, cancellable: Bool = false,
+    func perform<T: Sendable>(_ title: String, cancellable: Bool = false, failureTitle: String? = nil,
                               _ work: @escaping @Sendable (Reporter) throws -> T,
                               then: @escaping @MainActor (T) -> Void = { _ in }) {
         guard activity == nil, !previewing else { return }
@@ -190,7 +186,7 @@ final class AppModel: ObservableObject {
                         case .success(let value): then(value)
                         case .failure(let error):
                             let cancelled = (error as? HeartportError)?.kind == .cancelled
-                            self.failure = cancelled ? nil : Self.message(error)
+                            self.failure = cancelled ? nil : [failureTitle, Self.message(error)].compactMap { $0 }.joined(separator: " ")
                             if cancelled { self.notice = "\(title): cancelled." }
                             self.showWindow()
                         }
@@ -325,7 +321,7 @@ final class AppModel: ObservableObject {
                 try AppState.update(paths) { $0.gameInstalled = true }
                 return nil
             case .incomplete(let c):
-                return "\(c.md5Mismatch.count) of \(c.md5Checked) sampled files differ from TapTap's manifest. Use TapTap's verify (Update Game) or Repair."
+                return "\(c.md5Mismatch.count) of \(c.md5Checked) checked game files are damaged. Use TapTap's verify (Update Game) or Repair."
             default:
                 return "The download is not complete yet."
             }
@@ -355,7 +351,7 @@ final class AppModel: ObservableObject {
     private func startGame(stopFirst: Bool, auto: Bool) {
         let paths = paths
         if !auto { hideWindow() }
-        perform("Starting Heartopia") { r in
+        perform("Starting Heartopia", failureTitle: "Heartopia didn't start.") { r in
             if stopFirst {
                 let snapshot = SessionSnapshot.take(paths)
                 if let game = snapshot.game { throw HeartportError(.sessionAlive, "Heartopia is already running (pid \(game.pid)).") }
@@ -374,7 +370,7 @@ final class AppModel: ObservableObject {
     func showHeartopia(pid: Int32) {
         guard !previewing else { return }
         if let app = NSRunningApplication(processIdentifier: pid), app.activate(options: [.activateAllWindows]) { return }
-        failure = "Could not bring Heartopia (pid \(pid)) to the front."
+        failure = "Could not bring Heartopia to the front."
     }
 
     func updateGame() {
@@ -392,16 +388,16 @@ final class AppModel: ObservableObject {
     func resetGraphics() {
         let count = RegistrySeeds.all.count
         confirm("Reset graphics settings?",
-                "This re-applies Heartport's \(count) defaults (Retina mode off, High quality, 3840x2160@60 entry, UI 85%, ...) over any changes made in the game.",
+                "Puts Heartport's recommended graphics settings back, replacing any changes made in the game.",
                 button: "Reset") {
             let paths = self.paths
             self.perform("Resetting graphics settings") { r in
                 guard PrefixSetup(paths: paths).exists else { throw HeartportError(.prefixMissing, "The Wine prefix does not exist yet.") }
                 try SessionGuard.requireIdle(paths, to: "reset the graphics settings")
-                try PrefixSetup(paths: paths).apply(RegistrySeeds.all.map(PrefixSetup.Step.seed), log: { r.line($0) })
-                Logs.append(paths, "app: reset-graphics")
+                try PrefixSetup(paths: paths).apply(RegistrySeeds.all.map(PrefixSetup.Step.seed), log: Operations.detail(paths))
+                Logs.append(paths, "app: reset-graphics (\(count) values)")
             } then: { _ in
-                self.notice = "Graphics settings reset to Heartport's defaults."
+                self.notice = "Graphics settings restored."
             }
         }
     }
@@ -411,7 +407,7 @@ final class AppModel: ObservableObject {
         if FileManager.default.fileExists(atPath: paths.logs.path) {
             NSWorkspace.shared.open(paths.logs)
         } else {
-            notice = "There are no logs yet (\(paths.logs.path))."
+            notice = "There are no logs yet."
             showWindow()
         }
     }
@@ -440,9 +436,9 @@ final class AppModel: ObservableObject {
                 guard fm.fileExists(atPath: paths.dataRoot.path) else { return "Nothing to remove." }
                 try SessionGuard.requireIdle(paths, to: "uninstall")
                 r.line("Moving \(paths.dataRoot.lastPathComponent) to the Trash")
-                var trashed: NSURL?
-                try fm.trashItem(at: paths.dataRoot, resultingItemURL: &trashed)
-                return "Moved to the Trash: \(trashed?.path ?? paths.dataRoot.path)"
+                // No log line afterwards: writing one would recreate the data folder.
+                try fm.trashItem(at: paths.dataRoot, resultingItemURL: nil)
+                return "Heartport's data folder is in the Trash."
             } then: { message in
                 self.notice = message
             }

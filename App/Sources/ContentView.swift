@@ -78,7 +78,7 @@ private struct HeroHeader: View {
             Text("Heartport")
                 .font(.largeTitle.weight(.bold))
                 .padding(.top, 8)
-            Text("Heartopia on Apple silicon")
+            Text("Heartopia ported to Mac")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
@@ -162,25 +162,27 @@ private struct StepCard: View {
     @FocusState private var focus: Focus?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.title2.weight(.semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(description)
-                .font(.body)
-                .padding(.top, 8)
-                .fixedSize(horizontal: false, vertical: true)
+        // Absent sections (no details, no progress) take no space: the card hugs its content.
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.title2.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text(description)
+                        .font(.body)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if finishingUp { ProgressView().controlSize(.small) }
+                }
+            }
             details
-                .padding(.top, 16)
-            Spacer(minLength: 16)
             progress
             bottomRow
-                .padding(.top, 16)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -198,12 +200,17 @@ private struct StepCard: View {
 
     // MARK: text
 
+    /// TapTap or another program of ours is still open (ready.launcherOpen / .sessionBusy).
+    private var finishingUp: Bool {
+        model.activity == nil && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
+    }
+
     private var title: String {
         if let activity = model.activity { return activity.title }
         switch model.phase {
         case nil: return "Checking this Mac"
         case .rosettaMissing?: return "Install Rosetta 2"
-        case .runtime?: return "Install the Windows runtime"
+        case .runtime?: return "Install the game runtime"
         case .prefix(let exists)?: return exists ? "Update the Windows environment" : "Create the Windows environment"
         case .taptap?: return "Install TapTap"
         case .download(let d)?: return d.incomplete ? "Finish the download" : "Download Heartopia"
@@ -219,21 +226,20 @@ private struct StepCard: View {
         case .rosettaMissing?:
             return "Heartopia is a Windows game for Intel processors, and Heartport runs it through Rosetta 2, Apple's translator. It isn't installed on this Mac yet."
         case .runtime?:
-            return "Heartport runs Heartopia on Wine with DXMT, which turns Direct3D into Metal. Installing it takes a minute or two and about 1.5 GB."
+            return "Heartport installs the layer that lets Heartopia, a Windows game, run on this Mac."
         case .prefix(let exists)?:
             return exists
-                ? "A few settings need applying: Windows 10 mode, Retina mode off and Heartport's graphics defaults."
-                : "Next, Heartport builds the private Windows 10 environment Heartopia runs in. This takes about a minute."
+                ? "A few settings need updating."
+                : "Next, Heartport sets up the Windows environment Heartopia runs in. This takes about a minute."
         case .taptap?:
-            return "Heartopia is distributed through TapTap. Its installer needs two clicks from you."
+            return "Heartopia is sold through TapTap, a game store like Steam. Its installer needs two clicks from you."
         case .download?:
-            return "In TapTap, sign in if asked, find Heartopia and click \u{201C}Download & Install\u{201D}. Keep TapTap open until it finishes."
+            return "In TapTap, find Heartopia and click \u{201C}Download & Install\u{201D}. Keep TapTap open until it finishes."
         case .ready(.gameRunning)?:
             return "Heartopia is open in its own window."
-        case .ready(.launcherOpen)?:
-            return "Heartopia is installed. TapTap is still open; it closes when the game starts."
-        case .ready(.sessionBusy)?:
-            return "Heartopia is installed. Another Windows program from Heartport is still running; it closes when the game starts."
+        case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
+            // TapTap or another program of ours is still open; Play closes it after confirming.
+            return "Heartopia is installed. Finishing up a previous session\u{2026}"
         case .ready(.idle)?:
             return "Heartopia is installed. Heartport starts it as soon as you open the app."
         }
@@ -256,10 +262,7 @@ private struct StepCard: View {
                     .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
         case .runtime?:
-            VStack(alignment: .leading, spacing: 8) {
-                DetailRow("shippingbox", "Recall 1.3.0 runtime, bundled with Heartport")
-                DetailRow("internaldrive", "About 17 GB free space for everything, including the game")
-            }
+            DetailRow("internaldrive", "About 1.5 GB, one or two minutes")
         case .prefix?:
             DetailRow("lock.shield", "Kept inside Heartport's own folder; nothing else on your Mac changes")
         case .taptap(let installerRunning)?:
@@ -278,14 +281,19 @@ private struct StepCard: View {
                 if d.launcherRunning {
                     StatusRow(ok: true, "TapTap is open in its own window.")
                 } else {
-                    DetailRow("macwindow", "TapTap's window opens separately. The game is about 13 GB.")
+                    DetailRow("macwindow", "TapTap's window opens separately.")
+                }
+                if d.fraction == nil {
+                    DetailRow("internaldrive", "The game is about 13 GB")
                 }
                 if d.incomplete {
-                    StatusRow(ok: false, "Some files differ from TapTap's manifest. Use TapTap's verify, or Repair in the Heartport menu.")
+                    StatusRow(ok: false, "Some game files are damaged. Use TapTap's verify, or Repair in the Heartport menu.")
                 }
             }
         case .ready(let state)?:
-            ReadyStatus(model: model, state: state)
+            if model.hud {
+                ReadyStatus(model: model, state: state)
+            }
         case nil:
             EmptyView()
         }
@@ -491,19 +499,9 @@ private struct ReadyStatus: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if case .gameRunning = state {
-                let inBundle = model.report?.session.gameInModeBundle == true
-                StatusRow(ok: inBundle, inBundle ? "Running from the Game Mode bundle" : "Not running from the Game Mode bundle")
-            } else {
-                let bundle = model.report?.runtime
-                let ok = bundle?.gameModeBundle == true
-                    && (bundle?.gameModeBundleIdentifier.map { $0 == GameModeBundle.identifier } ?? true)
-                StatusRow(ok: ok, ok ? "Runs from the Game Mode bundle" : "The Game Mode bundle needs repair")
+            if model.hud {
+                DetailRow("gauge.with.dots.needle.33percent", "Performance overlay on")
             }
-            if let last = model.lastPlayed {
-                DetailRow("clock", "Last played \(last.formatted(.relative(presentation: .named)))")
-            }
-            DetailRow("gauge.with.dots.needle.33percent", model.hud ? "Metal performance HUD on" : "Metal performance HUD off")
         }
     }
 }

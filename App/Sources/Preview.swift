@@ -20,7 +20,7 @@ struct Preview {
         "windows", "windows-setting-up", "windows-update",
         "taptap-install", "taptap-preparing", "taptap-installing",
         "download-waiting", "download", "download-restart", "download-incomplete", "download-checking",
-        "ready", "ready-launcher-open", "ready-session-busy", "game-running",
+        "ready", "ready-hud", "finishing-up", "ready-launcher-open", "ready-session-busy", "game-running",
         "launch-failed", "notice", "repairing",
     ]
 
@@ -37,7 +37,7 @@ struct Preview {
         let name = aliases[raw] ?? raw
         guard names.contains(name) else { return nil }
         var p = Preview(report: sampleReport(installed: name.hasPrefix("ready") || name.hasPrefix("game")
-                                               || ["launch-failed", "notice", "repairing"].contains(name)))
+                                               || ["finishing-up", "launch-failed", "notice", "repairing"].contains(name)))
         switch name {
         case "checking":
             p.phase = nil
@@ -50,7 +50,7 @@ struct Preview {
             p.hasLogs = false
         case "runtime-installing":
             p.phase = .runtime
-            p.activity = Activity(title: "Setting up", line: "Verifying every file against runtime.json")
+            p.activity = Activity(title: "Setting up", line: "Installing the game runtime")
         case "windows":
             p.phase = .prefix(exists: false)
         case "windows-setting-up":
@@ -84,6 +84,11 @@ struct Preview {
             p.activity = Activity(title: "Checking the downloaded files", line: "Checking file sizes and a sample of md5 sums")
         case "ready":
             p.phase = .ready(.idle)
+        case "ready-hud":
+            p.phase = .ready(.idle)
+            p.report?.state.hud = true
+        case "finishing-up":
+            p.phase = .ready(.launcherOpen)
         case "ready-launcher-open":
             p.phase = .ready(.launcherOpen)
         case "ready-session-busy":
@@ -94,10 +99,10 @@ struct Preview {
             p.report?.session.gameInModeBundle = true
         case "launch-failed":
             p.phase = .ready(.idle)
-            p.failure = "Wine exited before Heartopia's window appeared (see ~/Library/Application Support/Heartport/logs/game.log)."
+            p.failure = "Heartopia didn't start. The game closed before its window appeared."
         case "notice":
             p.phase = .ready(.idle)
-            p.notice = "Graphics settings reset to Heartport's defaults."
+            p.notice = "Graphics settings restored."
         case "repairing":
             p.phase = .ready(.idle)
             p.activity = Activity(title: "Repairing", line: "Checking game files: 1450 of 3712", fraction: 0.39, cancellable: true)
@@ -113,12 +118,11 @@ struct Preview {
     }
 
     /// A status gathered from a data root that does not exist (read-only; nothing is created),
-    /// then filled in so the ready state has its Game Mode check, last-played time and HUD.
+    /// then filled in as an installed game (HUD off, as on a fresh install).
     private static func sampleReport(installed: Bool) -> StatusReport {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("heartport-preview-does-not-exist-\(UUID().uuidString)", isDirectory: true)
         var r = StatusReport.gather(Paths(dataRoot: root))
-        r.state.hud = true
         guard installed else { return r }
         r.runtime.installedVersion = r.runtime.expectedVersion
         r.runtime.gameModeBundle = true
