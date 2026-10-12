@@ -28,20 +28,26 @@ enum Brand {
 }
 
 struct ContentView: View {
-    static let size = CGSize(width: 520, height: 600)
+    /// The width is fixed; the height is a first guess until the content is measured.
+    static let size = CGSize(width: 520, height: 480)
     @ObservedObject var model: AppModel
 
     var body: some View {
         Group {
             if model.welcome {
                 WelcomeView(model: model)
+            } else if model.allSet {
+                AllSetView(model: model)
             } else {
                 VStack(spacing: 0) {
                     HeroHeader()
                         .padding(.top, 40) // clears the traffic lights
-                    StepDots(current: model.step)
-                        .padding(.top, 24)
-                        .padding(.horizontal, 8)
+                    // Setup progress; gone once setup is complete.
+                    if model.step != .ready {
+                        StepDots(current: model.step)
+                            .padding(.top, 24)
+                            .padding(.horizontal, 8)
+                    }
                     StepCard(model: model)
                         .padding(.top, 24)
                     Callouts(model: model)
@@ -51,11 +57,11 @@ struct ContentView: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        // The welcome window hugs this height; the other steps use the fixed 600.
+        // The window hugs this height in every state (AppModel.contentHeight).
         .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { model.contentHeight = $0 }
         .frame(width: Self.size.width)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background { Backdrop(rich: model.welcome) }
+        .background { Backdrop(rich: model.welcome || model.allSet) }
         .ignoresSafeArea()
         .tint(Brand.accent)
     }
@@ -100,10 +106,6 @@ private struct HeroHeader: View {
             Text("Heartport")
                 .font(.largeTitle.weight(.bold))
                 .padding(.top, 8)
-            Text("Heartopia ported to Mac")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
         }
         .accessibilityElement(children: .combine)
     }
@@ -247,6 +249,58 @@ private struct WelcomeView: View {
     }
 }
 
+/// Once, when setup is complete: the welcome screen's composition with one Play button.
+private struct AllSetView: View {
+    @ObservedObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 128, height: 128)
+                .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+                .scaleEffect(appeared || reduceMotion ? 1 : 0.9)
+                .entrance(appeared, delay: 0)
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                Text("Heartopia is ready")
+                    .font(.system(size: 34, weight: .bold))
+                Text("Heartopia ported to Mac")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 24)
+            .entrance(appeared, delay: 0.1)
+            Text("From now on, opening Heartport starts Heartopia. Hold Option while opening it to reach Settings instead.")
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 400)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 16)
+                .entrance(appeared, delay: 0.18)
+            Button { model.play() } label: {
+                Label("Play", systemImage: "play.fill").frame(width: 200)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .disabled(model.busy)
+            .padding(.top, 32)
+            .entrance(appeared, delay: 0.26)
+            Callouts(model: model)
+                .frame(maxWidth: 420)
+        }
+        .padding(.top, 56) // under the traffic lights
+        .padding(.horizontal, 32)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity)
+        .onAppear { appeared = true }
+    }
+}
+
 private struct Fact: View {
     let systemImage: String
     let text: String
@@ -298,15 +352,17 @@ private struct StepCard: View {
         // Absent sections (no details, no progress) take no space: the card hugs its content.
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.title2.weight(.semibold))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
+                    Text(title)
+                        .font(.title2.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if finishingUp { ProgressView().controlSize(.small) }
+                }
+                if !description.isEmpty {
                     Text(description)
                         .font(.body)
                         .fixedSize(horizontal: false, vertical: true)
-                    if finishingUp { ProgressView().controlSize(.small) }
                 }
             }
             details
@@ -325,9 +381,11 @@ private struct StepCard: View {
 
     // MARK: text
 
-    /// TapTap or another program of ours is still open (ready.launcherOpen / .sessionBusy).
+    /// TapTap or another program of ours is still open (ready.launcherOpen / .sessionBusy) and
+    /// Heartport is about to close it (not when Update Game opened TapTap).
     private var finishingUp: Bool {
-        model.shownActivity == nil && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
+        model.shownActivity == nil && !model.updatingGame
+            && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
     }
 
     private var title: String {
@@ -340,6 +398,8 @@ private struct StepCard: View {
         case .taptap?: return "Install TapTap"
         case .download(let d)?: return d.incomplete ? "Finish the download" : "Download Heartopia"
         case .ready(.gameRunning)?: return "Heartopia is running"
+        case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
+            return model.updatingGame ? "TapTap is open" : "Finishing up\u{2026}"
         case .ready?: return "Ready to play"
         }
     }
@@ -363,10 +423,10 @@ private struct StepCard: View {
         case .ready(.gameRunning)?:
             return "Heartopia is open in its own window."
         case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
-            // TapTap or another program of ours is still open; Play closes it after confirming.
-            return "Finishing up a previous session\u{2026}"
+            // Update Game opened TapTap; Play closes it. Otherwise Heartport closes it by itself.
+            return model.updatingGame ? "If TapTap offers a Heartopia update, run it. Then press Play." : ""
         case .ready(.idle)?:
-            return "Next time you open Heartport, Heartopia will start automatically."
+            return ""
         }
     }
 

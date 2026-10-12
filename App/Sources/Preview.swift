@@ -13,6 +13,8 @@ struct Preview {
     var report: StatusReport?
     var hasLogs = true
     var welcome = false
+    var allSet = false
+    var updatingGame = false
     var freeBytes: Int64? = 250_000_000_000
 
     /// Every name, in setup order.
@@ -22,7 +24,7 @@ struct Preview {
         "windows", "windows-setting-up", "windows-update",
         "taptap-install", "taptap-preparing", "taptap-installing",
         "download-waiting", "download", "download-restart", "download-incomplete", "download-checking",
-        "ready", "ready-hud", "finishing-up", "ready-launcher-open", "ready-session-busy", "game-running",
+        "all-set", "ready", "ready-hud", "finishing-up", "ready-updating", "ready-launcher-open", "ready-session-busy", "game-running",
         "launch-failed", "notice", "repairing",
     ]
 
@@ -39,7 +41,7 @@ struct Preview {
         let name = aliases[raw] ?? raw
         guard names.contains(name) else { return nil }
         var p = Preview(report: sampleReport(installed: name.hasPrefix("ready") || name.hasPrefix("game")
-                                               || ["finishing-up", "launch-failed", "notice", "repairing"].contains(name)))
+                                               || ["all-set", "finishing-up", "launch-failed", "notice", "repairing"].contains(name)))
         switch name {
         case "welcome":
             p.phase = .runtime
@@ -92,6 +94,9 @@ struct Preview {
         case "download-checking":
             p.phase = .download(download(total, launcherRunning: true))
             p.activity = Activity(title: "Checking the downloaded files", line: "Checking file sizes and a sample of md5 sums")
+        case "all-set":
+            p.phase = .ready(.idle)
+            p.allSet = true
         case "ready":
             p.phase = .ready(.idle)
         case "ready-hud":
@@ -99,6 +104,10 @@ struct Preview {
             p.report?.state.hud = true
         case "finishing-up":
             p.phase = .ready(.launcherOpen)
+            p.activity = Activity(title: "Finishing up\u{2026}", line: "Closing TapTap")
+        case "ready-updating":
+            p.phase = .ready(.launcherOpen)
+            p.updatingGame = true
         case "ready-launcher-open":
             p.phase = .ready(.launcherOpen)
         case "ready-session-busy":

@@ -18,6 +18,8 @@ public struct AppState: Codable, Sendable, Equatable {
     public var lastLaunch: String?
     /// The app's welcome screen was dismissed ("Get Started") for this data folder.
     public var welcomed: Bool?
+    /// The app's one-time "Heartopia is ready" screen was shown and left (Play) for this data folder.
+    public var setupCompleteShown: Bool?
 
     public init() {}
 

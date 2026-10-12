@@ -51,20 +51,24 @@ final class AppModel: ObservableObject {
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
     /// The first-run welcome screen is up (SetupPhase.needsWelcome).
-    @Published private(set) var welcome = false {
-        didSet { if welcome != oldValue { resizeWindow(windowHeight, oldValue && windowIsVisible()) } }
-    }
+    @Published private(set) var welcome = false
+    /// The one-time "Heartopia is ready" screen is up (setup just finished;
+    /// AppState.setupCompleteShown is not set yet).
+    @Published private(set) var allSet = false
+    /// TapTap was opened from Update Game: it stays open (no automatic finishing up) until it
+    /// closes or Play closes it.
+    @Published private(set) var updatingGame = false
     /// Free space on the data folder's volume, for the welcome screen's warning.
     @Published private(set) var freeBytes: Int64?
     private var welcomeDismissed = false
-    /// The window content's natural height, reported by ContentView; the welcome window hugs it.
+    private var allSetDone = false
+    /// The window content's natural height, reported by ContentView; the window hugs it in every
+    /// state, animating the change while it is on screen (top edge fixed).
     var contentHeight: CGFloat = 0 {
-        didSet { if welcome, abs(contentHeight - oldValue) > 0.5 { resizeWindow(windowHeight, false) } }
-    }
-    /// The welcome window's height before ContentView has measured it.
-    static let welcomeHeightEstimate: CGFloat = 480
-    var windowHeight: CGFloat {
-        welcome ? (contentHeight > 0 ? contentHeight : Self.welcomeHeightEstimate) : ContentView.size.height
+        didSet {
+            guard abs(contentHeight - oldValue) > 0.5, contentHeight > 0 else { return }
+            resizeWindow(contentHeight, oldValue > 0 && windowIsVisible())
+        }
     }
     /// HEARTPORT_PREVIEW_PHASE: a fixed sample state for screenshots. Nothing is polled or run.
     private(set) var previewing = false
@@ -130,6 +134,8 @@ final class AppModel: ObservableObject {
         previewHasLogs = preview.hasLogs
         freeBytes = preview.freeBytes
         welcome = preview.welcome
+        allSet = preview.allSet
+        updatingGame = preview.updatingGame
         // After launch finishes, as the real first refresh does, so the window becomes key.
         DispatchQueue.main.async { MainActor.assumeIsolated { self.showWindow() } }
     }
@@ -188,6 +194,13 @@ final class AppModel: ObservableObject {
         freeBytes = Self.availableBytes(near: paths.dataRoot)
         welcome = !welcomeDismissed && (phase?.needsWelcome(runtimeInstalled: new.runtime.installedVersion != nil,
                                                             welcomed: new.state.welcomed == true) ?? false)
+        if !new.session.launcherRunning { updatingGame = false }
+        // Only straight after setup: an install that already played (auto-launch) never sees it.
+        switch phase {
+        case .ready(.idle)?: allSet = new.state.setupCompleteShown != true && !allSetDone
+        case .ready(.launcherOpen)?, .ready(.sessionBusy)?: break // finishing up comes first
+        default: allSet = false
+        }
         if case .download(let d)? = phase, let have = d.bytesOnDisk, let total = d.totalBytes {
             downloadRate.add(bytes: have, at: Date())
             downloadETA = downloadRate.eta(remaining: total - have)
@@ -200,9 +213,14 @@ final class AppModel: ObservableObject {
             firstRefreshDone = true
             if autoLaunch, phase?.canAutoLaunch == true {
                 play(auto: true) // the window stays hidden unless this fails
-            } else {
-                showWindow()
+                return
             }
+            showWindow()
+        }
+        if activity == nil, !updatingGame, phase == .ready(.launcherOpen) || phase == .ready(.sessionBusy) {
+            // The game is complete: TapTap (or a leftover program) is no longer needed, and its
+            // own Start Game would run Heartopia outside Heartport. Close it without asking.
+            finishUp()
             return
         }
         if activity == nil, let since = launcherRestartPending, case .download = phase,
@@ -452,36 +470,55 @@ final class AppModel: ObservableObject {
             }
         } then: { problem in
             if let problem { self.failure = problem }
-            else { self.notice = "Heartopia is installed. Close the TapTap window, then press Play." }
+        }
+    }
+
+    /// Ends the session that is still open now that the game is complete (TapTap after the
+    /// download, or programs left over from an earlier session). No confirmation.
+    private func finishUp() {
+        let paths = paths
+        perform("Finishing up\u{2026}") { r in
+            let snapshot = SessionSnapshot.take(paths)
+            guard snapshot.game == nil, snapshot.isAlive || !snapshot.processes.isEmpty else { return }
+            r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
+            Logs.append(paths, "app: game complete; ending the open session (\(snapshot.windowsPrograms.compactMap(\.programName).joined(separator: ", ")))")
+            try Session.stop(paths: paths, log: Logs.stop(paths))
+        }
+    }
+
+    /// The all-set screen's Play (or any game start): the screen is not shown again.
+    private func markSetupComplete() {
+        allSetDone = true
+        allSet = false
+        guard !previewing, report?.state.setupCompleteShown != true else { return }
+        do { try AppState.update(paths) { $0.setupCompleteShown = true } } catch {
+            Logs.append(paths, "app: could not save setupCompleteShown: \(Self.message(error))")
         }
     }
 
     // MARK: ready state and menu actions
 
-    /// Start the game. With `auto` the window stays hidden unless it fails. When the TapTap
-    /// launcher (or another session of ours) is open, asks to close it first.
+    /// Start the game. With `auto` the window stays hidden unless it fails. A TapTap (or other
+    /// session of ours) that is still open is closed first, without asking.
     func play(auto: Bool = false) {
         guard !previewing else { return }
         guard let report else { return }
         if let game = report.session.game { showHeartopia(pid: game.pid); return }
-        if report.session.alive {
-            let what = report.session.launcherRunning ? "The TapTap launcher is open" : "A Heartport Wine session is still running"
-            confirm("Close TapTap and play?", "\(what). Heartopia starts in a fresh session, so it will be closed first.",
-                    button: "Close and Play") { self.startGame(stopFirst: true, auto: false) }
-            return
-        }
-        startGame(stopFirst: false, auto: auto)
+        startGame(stopFirst: report.session.alive, auto: auto)
     }
 
     private func startGame(stopFirst: Bool, auto: Bool) {
+        guard activity == nil else { return }
         let paths = paths
+        markSetupComplete()
+        updatingGame = false
         if !auto { hideWindow() }
         let started = Date()
         perform("Starting Heartopia", failureTitle: "Heartopia didn't start.") { r in
             if stopFirst {
                 let snapshot = SessionSnapshot.take(paths)
                 if let game = snapshot.game { throw HeartportError(.sessionAlive, "Heartopia is already running (pid \(game.pid)).") }
-                r.line("Closing the previous session")
+                r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             }
             let hud = AppState.load(paths).hud ?? false
@@ -563,6 +600,7 @@ final class AppModel: ObservableObject {
     func updateGame() {
         let paths = paths
         startedLauncher = true
+        updatingGame = true
         perform("Opening TapTap\u{2026}") { r -> Bool in
             r.line("Starting TapTap")
             let started = try TapTapLauncher.run(paths) != nil
@@ -570,8 +608,7 @@ final class AppModel: ObservableObject {
             _ = Operations.bringToFront(paths, timeout: 25) { $0.launcher }
             return started
         } then: { started in
-            self.notice = (started ? "TapTap is open." : "TapTap is already open.")
-                + " If it offers a Heartopia update, run it. Then close TapTap and press Play."
+            Logs.append(paths, "app: Update Game: TapTap \(started ? "started" : "was already open")")
         }
     }
 

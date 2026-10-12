@@ -131,4 +131,14 @@ final class SessionTests: XCTestCase {
         XCTAssertEqual(AppState.load(paths).welcomed, true)
         XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""welcomed" : true"#))
     }
+
+    func testSetupCompleteShownRoundTripsAndDefaultsToAbsent() throws {
+        let root = try tempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = Paths(dataRoot: root)
+        XCTAssertNil(AppState.load(paths).setupCompleteShown)
+        try AppState.update(paths) { $0.setupCompleteShown = true }
+        XCTAssertEqual(AppState.load(paths).setupCompleteShown, true)
+        XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""setupCompleteShown" : true"#))
+    }
 }
