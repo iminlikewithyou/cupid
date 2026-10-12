@@ -56,7 +56,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 done(alert.runModal() == .alertFirstButtonReturn)
             }
         }
-        model.start()
+        let env = ProcessInfo.processInfo.environment
+        if let name = env["HEARTPORT_PREVIEW_PHASE"], !name.isEmpty {
+            guard let preview = Preview.named(name) else {
+                FileHandle.standardError.write(Data("HEARTPORT_PREVIEW_PHASE: unknown phase \"\(name)\". One of: \(Preview.names.joined(separator: ", "))\n".utf8))
+                exit(2)
+            }
+            model.showPreview(preview)
+            if env["HEARTPORT_PREVIEW_SETTINGS"] == "1" {
+                // Queued after showPreview's window, so Settings ends up key.
+                DispatchQueue.main.async { MainActor.assumeIsolated { self.openSettings(nil) } }
+            }
+        } else {
+            model.start()
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

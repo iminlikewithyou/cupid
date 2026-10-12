@@ -377,10 +377,10 @@ private struct StepCard: View {
                     .disabled(activity.cancelling)
             } else if model.activity == nil, case .taptap(false)? = model.phase {
                 Button("I've Installed It") { model.recheckTapTap() }
-            } else if FileManager.default.fileExists(atPath: model.paths.logs.path) {
+            } else if model.hasLogs {
                 Button("Show Logs") { model.showLogs() }
             } else {
-                Button("Show in Finder") { revealInFinder(model.paths.dataRoot) }
+                Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
                     .help("Heartport's data folder")
             }
         }
@@ -586,7 +586,7 @@ struct SettingsView: View {
             }
             Section {
                 LabeledContent("Data folder") {
-                    Button("Show in Finder") { revealInFinder(model.paths.dataRoot) }
+                    Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
                 }
             }
         }

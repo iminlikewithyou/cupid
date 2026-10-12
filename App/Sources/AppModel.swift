@@ -50,6 +50,9 @@ final class AppModel: ObservableObject {
     /// Seconds left in the TapTap download, once the rate is known.
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
+    /// HEARTPORT_PREVIEW_PHASE: a fixed sample state for screenshots. Nothing is polled or run.
+    private(set) var previewing = false
+    private var previewHasLogs: Bool?
 
     /// Window plumbing, set by the AppDelegate.
     var showWindow: () -> Void = {}
@@ -74,6 +77,9 @@ final class AppModel: ObservableObject {
 
     var busy: Bool { activity != nil }
 
+    /// The logs folder exists (Show Logs vs Show in Finder).
+    var hasLogs: Bool { previewHasLogs ?? FileManager.default.fileExists(atPath: paths.logs.path) }
+
     /// The step dot the window highlights.
     var step: SetupStep? { phase?.step }
 
@@ -84,7 +90,23 @@ final class AppModel: ObservableObject {
 
     // MARK: status
 
+    /// Shows `preview` instead of the real status, and makes every action inert.
+    func showPreview(_ preview: Preview) {
+        previewing = true
+        report = preview.report
+        phase = preview.phase
+        activity = preview.activity
+        failure = preview.failure
+        notice = preview.notice
+        downloadETA = preview.eta
+        hud = preview.report?.state.hud ?? false
+        previewHasLogs = preview.hasLogs
+        // After launch finishes, as the real first refresh does, so the window becomes key.
+        DispatchQueue.main.async { MainActor.assumeIsolated { self.showWindow() } }
+    }
+
     func start() {
+        guard !previewing else { return }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -96,6 +118,7 @@ final class AppModel: ObservableObject {
 
     /// Re-gather the status off the main thread (read-only).
     func refresh(then: (@MainActor () -> Void)? = nil) {
+        guard !previewing else { return }
         guard !refreshing else { return }
         refreshing = true
         let paths = paths
@@ -148,7 +171,7 @@ final class AppModel: ObservableObject {
     func perform<T: Sendable>(_ title: String, cancellable: Bool = false,
                               _ work: @escaping @Sendable (Reporter) throws -> T,
                               then: @escaping @MainActor (T) -> Void = { _ in }) {
-        guard activity == nil else { return }
+        guard activity == nil, !previewing else { return }
         let flag = CancelFlag()
         cancelFlag = flag
         failure = nil
@@ -179,6 +202,7 @@ final class AppModel: ObservableObject {
     }
 
     func cancel() {
+        guard !previewing else { return }
         cancelFlag?.cancel()
         activity?.cancelling = true
     }
@@ -190,6 +214,7 @@ final class AppModel: ObservableObject {
 
     private func confirm(_ title: String, _ text: String, button: String, destructive: Bool = false,
                          _ yes: @escaping @MainActor () -> Void) {
+        guard !previewing else { return }
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = text
@@ -206,6 +231,7 @@ final class AppModel: ObservableObject {
     // MARK: setup states
 
     func openRosettaInstructions() {
+        guard !previewing else { return }
         NSWorkspace.shared.open(URL(string: "https://support.apple.com/en-us/102527")!)
     }
 
@@ -257,6 +283,7 @@ final class AppModel: ObservableObject {
 
     /// "I've installed it".
     func recheckTapTap() {
+        guard !previewing else { return }
         notice = nil
         refresh {
             if case .taptap(let running)? = self.phase {
@@ -313,6 +340,7 @@ final class AppModel: ObservableObject {
     /// Start the game. With `auto` the window stays hidden unless it fails. When the TapTap
     /// launcher (or another session of ours) is open, asks to close it first.
     func play(auto: Bool = false) {
+        guard !previewing else { return }
         guard let report else { return }
         if let game = report.session.game { showHeartopia(pid: game.pid); return }
         if report.session.alive {
@@ -344,6 +372,7 @@ final class AppModel: ObservableObject {
     }
 
     func showHeartopia(pid: Int32) {
+        guard !previewing else { return }
         if let app = NSRunningApplication(processIdentifier: pid), app.activate(options: [.activateAllWindows]) { return }
         failure = "Could not bring Heartopia (pid \(pid)) to the front."
     }
@@ -378,6 +407,7 @@ final class AppModel: ObservableObject {
     }
 
     func showLogs() {
+        guard !previewing else { return }
         if FileManager.default.fileExists(atPath: paths.logs.path) {
             NSWorkspace.shared.open(paths.logs)
         } else {
@@ -420,6 +450,7 @@ final class AppModel: ObservableObject {
     }
 
     func setHUD(_ on: Bool) {
+        if previewing { hud = on; return }
         do {
             try AppState.update(paths) { $0.hud = on }
             hud = on
