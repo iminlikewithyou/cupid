@@ -1,0 +1,13 @@
+Heartport
+Copyright 2026 Heartport contributors
+
+This runtime was built with build scripts and Wine and DXMT patches from Recall,
+licensed under the Apache License 2.0:
+
+  Recall
+  Copyright 2026 Joshua Asher Nelson
+
+  Originally created by Joshua Asher Nelson.
+  Original project: https://github.com/AsherJN/recall
+
+Each third-party component keeps its own license; see the other files in this folder.

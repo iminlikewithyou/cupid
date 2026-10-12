@@ -4,3 +4,4 @@ Resources/runtime/
 *.xcodeproj/
 .DS_Store
 build/
+__pycache__/
