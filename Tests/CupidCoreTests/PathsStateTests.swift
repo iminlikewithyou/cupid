@@ -98,8 +98,8 @@ final class SessionTests: XCTestCase {
     func testInstallerStagesToActivate() {
         let rt = "/d/runtime/r"
         func process(_ pid: Int32, _ argv0: String) -> WineProcess { .init(pid: pid, path: "\(rt)/lib/wine/x86_64-unix/wine", argv0: argv0) }
-        func window(_ pid: Int32, layer: Int = 0, width: Int = 480, height: Int = 360) -> WindowInfo {
-            WindowInfo(pid: pid, owner: "wine", title: "", layer: layer, x: 0, y: 0, width: width, height: height)
+        func window(_ pid: Int32, id: Int? = nil, layer: Int = 0, width: Int = 480, height: Int = 360) -> WindowInfo {
+            WindowInfo(id: id ?? Int(pid) * 100, pid: pid, owner: "wine", title: "", layer: layer, x: 0, y: 0, width: width, height: height)
         }
         let snap = SessionSnapshot(processes: [
             process(10, #"C:\windows\system32\services.exe"#),
@@ -109,15 +109,51 @@ final class SessionTests: XCTestCase {
             process(30, #"C:\Program Files\TapTapGlobal\TapTapGlobal.exe"#),
         ], runtimesDir: "/d/runtime", wineserverPath: "\(rt)/bin/wineserver", installerDirs: ["/d/downloads", "/d/tmp"])
         XCTAssertEqual(snap.installer.map(\.pid), [20, 21, 22])
+        func check(_ windows: [WindowInfo], _ handled: Set<Int>, _ pids: [Int32], _ ids: Set<Int>, line: UInt = #line) {
+            let r = snap.installerWindowsToActivate(windows: windows, handled: handled)
+            XCTAssertEqual(r.pids, pids, line: line)
+            XCTAssertEqual(r.windowIDs, ids, line: line)
+        }
         // Only installer processes with a real window; services and TapTap never.
         let windows = [window(10), window(20), window(21, width: 1, height: 1), window(22, layer: 3), window(30)]
-        XCTAssertEqual(snap.installerPIDsToActivate(windows: windows, done: []), [20])
-        XCTAssertEqual(snap.installerPIDsToActivate(windows: windows, done: [20]), [])
+        check(windows, [], [20], [2000])
+        check(windows, [2000], [], [])
         // The next stage's window appears: only it is new.
         let later = windows + [window(21)]
-        XCTAssertEqual(snap.installerPIDsToActivate(windows: later, done: [20]), [21])
-        XCTAssertEqual(snap.installerPIDsToActivate(windows: later + [window(22)], done: [20, 21]), [22])
-        XCTAssertEqual(snap.installerPIDsToActivate(windows: [], done: []), [])
+        check(later, [2000], [21], [2100])
+        check(later + [window(22)], [2000, 2100], [22], [2200])
+        check([], [], [], [])
+    }
+
+    /// One installer process shows its windows one after another (language, then terms): each
+    /// new window is brought forward once, and a dialog over a window still open is too.
+    func testInstallerNewWindowsOfOneProcess() {
+        let rt = "/d/runtime/r"
+        let snap = SessionSnapshot(processes: [
+            .init(pid: 20, path: "\(rt)/lib/wine/x86_64-unix/wine", argv0: "/d/downloads/TapTap_Global_PC_Setup_0.3.0.1000.exe"),
+        ], runtimesDir: "/d/runtime", wineserverPath: "\(rt)/bin/wineserver", installerDirs: ["/d/downloads"])
+        func window(_ id: Int, width: Int = 480) -> WindowInfo {
+            WindowInfo(id: id, pid: 20, owner: "wine", title: "", layer: 0, x: 0, y: 0, width: width, height: 360)
+        }
+        func activate(_ windows: [WindowInfo], _ handled: Set<Int>) -> (pids: [Int32], windowIDs: Set<Int>) {
+            snap.installerWindowsToActivate(windows: windows, handled: handled)
+        }
+        // Language dialog: activated once, then not again while it stays open.
+        XCTAssertEqual(activate([window(1)], []).pids, [20])
+        XCTAssertEqual(activate([window(1)], []).windowIDs, [1])
+        XCTAssertEqual(activate([window(1)], [1]).pids, [])
+        // It closes (no windows for a moment), then the terms window opens from the same pid.
+        XCTAssertEqual(activate([], [1]).pids, [])
+        XCTAssertEqual(activate([window(2)], [1]).pids, [20])
+        XCTAssertEqual(activate([window(2)], [1]).windowIDs, [2])
+        XCTAssertEqual(activate([window(2)], [1, 2]).pids, [])
+        // A dialog opens over the terms window, which stays on screen: activated once, one pid.
+        XCTAssertEqual(activate([window(2), window(3)], [1, 2]).pids, [20])
+        XCTAssertEqual(activate([window(2), window(3)], [1, 2]).windowIDs, [3])
+        XCTAssertEqual(activate([window(2), window(3)], [1, 2, 3]).pids, [])
+        // Two new windows of one process at once: the pid once.
+        XCTAssertEqual(activate([window(4), window(5), window(6, width: 1)], [1, 2, 3]).pids, [20])
+        XCTAssertEqual(activate([window(4), window(5), window(6, width: 1)], [1, 2, 3]).windowIDs, [4, 5])
     }
 
     /// A live process whose binary sits at `<data>/runtime/<v>/bin/wineserver` is detected through

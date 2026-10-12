@@ -93,7 +93,7 @@ final class AppModel: ObservableObject {
     /// at work (fresh-install run 4: the later stages opened behind Cupid).
     private var installerWatch: Timer?
     /// Installer pids already activated during this TapTap step.
-    private var installerActivated: Set<Int32> = []
+    private var installerActivated: Set<Int> = []  // window ids already brought forward
     private var installerCheckRunning = false
     /// This app instance started (or is starting) the TapTap launcher with Cupid's flags.
     private var startedLauncher = false
@@ -431,7 +431,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Watches while the TapTap step shows the installer at work (or Cupid is starting it);
-    /// stops, forgetting the activated pids, when the step ends.
+    /// stops, forgetting the activated windows, when the step ends.
     private func updateInstallerWatch(starting: Bool = false) {
         guard !previewing else { return }
         guard case .taptap(let running)? = phase else {
@@ -455,15 +455,16 @@ final class AppModel: ObservableObject {
             let snapshot = SessionSnapshot.take(paths)
             let pids = snapshot.installer.map(\.pid)
             let windows = pids.isEmpty ? [] : WindowInfo.list(pids: Set(pids))
-            let new = snapshot.installerPIDsToActivate(windows: windows, done: done)
+            let new = snapshot.installerWindowsToActivate(windows: windows, handled: done)
             await MainActor.run {
                 self.installerCheckRunning = false
                 // The step may have ended meanwhile.
                 guard self.installerWatch != nil else { return }
-                let fresh = new.filter { !self.installerActivated.contains($0) }
-                guard !fresh.isEmpty else { return }
-                self.installerActivated.formUnion(fresh)
-                Logs.append(paths, "app: installer window on screen (pid \(fresh.map(String.init).joined(separator: ", "))); bringing it to the front")
+                let ids = new.windowIDs.subtracting(self.installerActivated)
+                guard !ids.isEmpty, !new.pids.isEmpty else { return }
+                self.installerActivated.formUnion(ids)
+                let fresh = new.pids
+                Logs.append(paths, "app: new installer window on screen (pid \(fresh.map(String.init).joined(separator: ", ")), window \(ids.sorted().map(String.init).joined(separator: ", "))); bringing it to the front")
                 Operations.activate(fresh)
             }
         }

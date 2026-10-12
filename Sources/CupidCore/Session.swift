@@ -162,6 +162,8 @@ public enum LiveProcesses {
 /// An on-screen window (CGWindowList). Titles need Screen Recording permission; owner,
 /// pid and bounds do not.
 public struct WindowInfo: Sendable, Codable, Equatable {
+    /// The window number (kCGWindowNumber), unique while the window exists.
+    public let id: Int
     public let pid: Int32
     public let owner: String
     public let title: String
@@ -175,7 +177,8 @@ public struct WindowInfo: Sendable, Codable, Equatable {
             if let pids, !pids.contains(pid) { return nil }
             let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
             func n(_ k: String) -> Int { (b[k] as? NSNumber)?.intValue ?? 0 }
-            return WindowInfo(pid: pid, owner: w[kCGWindowOwnerName as String] as? String ?? "",
+            return WindowInfo(id: (w[kCGWindowNumber as String] as? NSNumber)?.intValue ?? 0,
+                              pid: pid, owner: w[kCGWindowOwnerName as String] as? String ?? "",
                               title: w[kCGWindowName as String] as? String ?? "",
                               layer: (w[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0,
                               x: n("X"), y: n("Y"), width: n("Width"), height: n("Height"))
@@ -192,12 +195,16 @@ public struct WindowInfo: Sendable, Codable, Equatable {
 }
 
 extension SessionSnapshot {
-    /// The installer's processes (one per stage: language choice, install, "Installation
-    /// complete") that have an on-screen window in `windows` and are not in `done`, in snapshot
-    /// order: the stages still to bring to the front, once each.
-    public func installerPIDsToActivate(windows: [WindowInfo], done: Set<Int32>) -> [Int32] {
-        let shown = Set(windows.filter(\.isOnScreenWindow).map(\.pid))
-        return installer.map(\.pid).filter { shown.contains($0) && !done.contains($0) }
+    /// The installer processes that own an on-screen window in `windows` whose id is not in
+    /// `handled`, in snapshot order and each once, plus the ids of those windows to add to
+    /// `handled`. One installer process shows several windows in turn (language choice, terms,
+    /// install, "Installation complete"), and a dialog may open over a window still on screen:
+    /// each new window brings its process to the front once; a window that stays open does not.
+    public func installerWindowsToActivate(windows: [WindowInfo], handled: Set<Int>) -> (pids: [Int32], windowIDs: Set<Int>) {
+        let installerPIDs = installer.map(\.pid)
+        let fresh = windows.filter { $0.isOnScreenWindow && installerPIDs.contains($0.pid) && !handled.contains($0.id) }
+        let owners = Set(fresh.map(\.pid))
+        return (installerPIDs.filter(owners.contains), Set(fresh.map(\.id)))
     }
 }
 
