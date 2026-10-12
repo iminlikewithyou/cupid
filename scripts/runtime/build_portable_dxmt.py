@@ -38,6 +38,11 @@ def build(work,tools,jobs,signing=SIGNING):
     if not source.exists():run('git','clone','--no-checkout','https://github.com/NerRobDog/dxmt',source)
     current=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
     if current!=BASE:run('git','-C',source,'checkout','--detach',BASE)
+    # Heartport: start every build from the pristine base. The patches overlap, so on a tree that
+    # already carries all four, the first one neither applies nor reverses (Recall's script then
+    # stops); resetting makes reruns repeatable.
+    run('git','-C',source,'reset','--quiet','--hard',BASE)
+    run('git','-C',source,'clean','--quiet','-ffd')
     run('git','-C',source,'submodule','update','--init','--recursive')
     current=subprocess.check_output(['git','-C',str(source/'include/native/directx'),'rev-parse','HEAD'],text=True).strip()
     if current!=HEADERS:raise ValueError('DirectX header identity mismatch')
