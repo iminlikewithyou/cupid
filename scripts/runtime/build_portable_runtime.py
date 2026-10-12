@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PATCHES_DIR = ROOT / 'patches/recall'
 TOOLCHAINS = ROOT.parent / 'mactopia-runtime/toolchains'
 PREFIX_MAP = '/build/heartport'
+CONFIGURATION = 'vulkan-sdl2-ffmpeg-enabled-v1\n'
 SOJU = '3a350b32bf906dd2a509b18c642a5a2676de022a'
 INPUTS = {
     'wine.tar.gz': ('https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.3.0.tar.gz', 'ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872'),
@@ -109,26 +110,37 @@ def build(work, tools, headers, jobs):
     ft = extract(work, 'freetype') / 'freetype-2.13.3'
     soju = extract(work, 'soju') / ('soju-' + SOJU)
     mono = extract(work, 'mono') / 'wine-mono-10.4.1'
+    # Heartport: the patches overlap, so on a tree that carries all of them the first one
+    # neither applies nor reverses and Recall's apply_once stops. A marker written after the
+    # last patch makes reruns (a reconfigure, a new dependency) skip patching the same tree.
+    marker = wine / '.heartport-patches.json'
+    applied = json.dumps({'wine-v1-canvas.patch': '33d57c155761838988d98777a7cddb1b2d00417d07b2e19ca9533221aa9b6f65',
+                          'wine-mouselook.patch': '4e9d4ab2aff6ec38b03100d4802d2764efe1e33caf151cdb4c5de7a8dfa3dfdb',
+                          'wine-portable-directory-boolean.patch': '9c7f811b1eb83d8c322d42509a82c1bcd786f101ce1b26fc1dc0c5badebe619b',
+                          **PATCHES, **V1_PATCHES}, sort_keys=True) + '\n'
+    patched = marker.exists() and marker.read_text() == applied
+    def apply_once_here(source, p):
+        if not patched: apply_once(source, p)
     patch = PATCHES_DIR / 'wine-v1-canvas.patch'
     if sha(patch) != '33d57c155761838988d98777a7cddb1b2d00417d07b2e19ca9533221aa9b6f65':
         raise RuntimeError('The accepted native driver patch changed')
-    apply_once(wine, patch)
+    apply_once_here(wine, patch)
     # Mouselook with raw mouse input, accepted after the owner's play-tests on
     # 2026-09-25 and 2026-09-26. It is inert unless the app lists the game in
     # WINEMAC_MOUSELOOK.
     mouselook = PATCHES_DIR / 'wine-mouselook.patch'
     if sha(mouselook) != '4e9d4ab2aff6ec38b03100d4802d2764efe1e33caf151cdb4c5de7a8dfa3dfdb':
         raise RuntimeError('The accepted mouselook patch changed')
-    apply_once(wine, mouselook)
+    apply_once_here(wine, mouselook)
     directory_patch = PATCHES_DIR / 'wine-portable-directory-boolean.patch'
     if sha(directory_patch) != '9c7f811b1eb83d8c322d42509a82c1bcd786f101ce1b26fc1dc0c5badebe619b':
         raise RuntimeError('Portable directory-query compatibility patch changed')
-    apply_once(wine, directory_patch)
+    apply_once_here(wine, directory_patch)
     for name, expected in PATCHES.items():
         p = soju / 'patches' / name
         if sha(p) != expected:
             raise RuntimeError('Upstream compatibility patch changed')
-        apply_once(wine, p)
+        apply_once_here(wine, p)
     # v1.0, after the owner's play-tests of candidates 5-7: the registry save from
     # a forked server, Unix library loads outside the virtual-memory lock, the
     # window driver's activation, canvas and pointer fixes. Their diagnostics
@@ -138,7 +150,8 @@ def build(work, tools, headers, jobs):
         p = PATCHES_DIR / name
         if sha(p) != expected:
             raise RuntimeError('The accepted v1.0 patch changed: ' + name)
-        apply_once(wine, p)
+        apply_once_here(wine, p)
+    marker.write_text(applied)
     # The complete native driver supersedes Soju's native-window patches.
     # Omit its GOG-only Chromium injection (not used by the v6 launcher), which
     # also needs a rebase against CodeWeavers' Ubisoft environment-variable hook.
@@ -180,9 +193,10 @@ def build(work, tools, headers, jobs):
     with (logdir / 'wine.log').open('w') as log:
         configuration = builddir / '.portable-configuration'
         # 1.2 adds SDL2 (controllers other than PlayStation ones); an older tree is
-        # configured again so config.h gains SONAME_LIBSDL2.
+        # configured again so config.h gains SONAME_LIBSDL2. Heartport adds FFmpeg (winedmo,
+        # Media Foundation demuxing), so a tree configured without it is configured again.
         if (not (builddir / 'Makefile').exists() or not configuration.exists()
-                or configuration.read_text() != 'vulkan-sdl2-enabled-v1\n'):
+                or configuration.read_text() != CONFIGURATION):
             run(['/usr/bin/arch', '-x86_64', wine / 'configure', '--prefix=/usr/local',
                  '--enable-archs=i386,x86_64', '--without-x', '--disable-tests',
                  '--without-gstreamer', '--with-vulkan',
@@ -194,15 +208,18 @@ def build(work, tools, headers, jobs):
                  'INOTIFY_LIBS=-L' + str(deps / 'lib') + ' -linotify',
                  'SDL2_CFLAGS=-I' + str(work / 'clean-deps/include/SDL2'),
                  'SDL2_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lSDL2',
+                 'FFMPEG_CFLAGS=-I' + str(work / 'clean-deps/include'),
+                 'FFMPEG_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lavutil -lavformat -lavcodec',
                  'LDFLAGS=-Wl,-headerpad,0x1000 -L' + str(deps / 'lib'), 'CFLAGS=' + flags,
                  'CROSSCFLAGS=' + flags,
                  'CC=/usr/bin/clang -arch x86_64', 'CXX=/usr/bin/clang++ -arch x86_64'],
                 cwd=builddir, env=env, stdout=log, stderr=subprocess.STDOUT)
-            configuration.write_text('vulkan-sdl2-enabled-v1\n')
+            configuration.write_text(CONFIGURATION)
         config = builddir / 'include/config.h'
         text = config.read_text()
         for required in ('#define HAVE_SYS_INOTIFY_H 1', '#define SONAME_LIBGNUTLS ', '#define SONAME_LIBFREETYPE ',
-                         '#define SONAME_LIBSDL2 '):
+                         '#define SONAME_LIBSDL2 ', '#define HAVE_FFMPEG 1',
+                         '#define HAVE_LIBAVCODEC_BSF_H 1'):
             if required not in text:
                 raise RuntimeError('Wine lacks a required dependency: ' + required)
         for name, library in [('GNUTLS', 'libgnutls.30.dylib'), ('FREETYPE', 'libfreetype.6.dylib'),
@@ -248,7 +265,7 @@ def build(work, tools, headers, jobs):
               'v1_patches': V1_PATCHES,
               'gnutls_header_sha256': sha(headers / 'gnutls/gnutls.h'),
               'minimum_macos': '26.0', 'runtime_scope': 'Wine + FreeType built from source; DXMT assembly is separate',
-              'without_vulkan': False, 'without_gstreamer': True, 'with_sdl2': True,
+              'without_vulkan': False, 'without_gstreamer': True, 'with_sdl2': True, 'with_ffmpeg': True,
               'native_linker_header_padding': '0x1000',
               'windows_compiler_paths_remapped': True,
               'driver_matches_accepted_patch': True}
