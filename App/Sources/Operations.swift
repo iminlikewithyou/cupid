@@ -67,7 +67,7 @@ enum Operations {
         let steps = setup.plan(state: AppState.load(paths))
         guard !steps.isEmpty else { r.line("Windows environment up to date"); return }
         try SessionGuard.requireIdle(paths, to: "change the Wine prefix")
-        r.line(setup.exists ? "Updating the Windows environment" : "Creating the Windows environment (about a minute)")
+        r.line(setup.exists ? "Updating the Windows environment" : "Creating the Windows environment")
         try setup.apply(steps, log: detail(paths))
     }
 

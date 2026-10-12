@@ -355,18 +355,18 @@ private struct StepCard: View {
         case .prefix(let exists)?:
             return exists
                 ? "A few settings need updating."
-                : "Next, Heartport sets up the Windows environment Heartopia runs in. This takes about a minute."
+                : "Next, Heartport sets up the Windows environment Heartopia runs in."
         case .taptap?:
-            return "Heartopia is sold through TapTap, a game store like Steam. Its installer needs two clicks from you."
+            return "Heartopia comes from TapTap, a game store like Steam. Its installer needs two clicks from you."
         case .download?:
             return "In TapTap, find Heartopia and click \u{201C}Download & Install\u{201D}. Keep TapTap open until it finishes."
         case .ready(.gameRunning)?:
             return "Heartopia is open in its own window."
         case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
             // TapTap or another program of ours is still open; Play closes it after confirming.
-            return "Heartopia is installed. Finishing up a previous session\u{2026}"
+            return "Finishing up a previous session\u{2026}"
         case .ready(.idle)?:
-            return "Heartopia is installed. Heartport starts it as soon as you open the app."
+            return "Next time you open Heartport, Heartopia will start automatically."
         }
     }
 
@@ -387,9 +387,12 @@ private struct StepCard: View {
                     .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
         case .runtime?:
-            DetailRow("internaldrive", "About 1.5 GB, one or two minutes")
-        case .prefix?:
-            EmptyView()
+            VStack(alignment: .leading, spacing: 8) {
+                DetailRow("clock", "One or two minutes")
+                DetailRow("internaldrive", "About 1.5 GB")
+            }
+        case .prefix(let exists)?:
+            if !exists { DetailRow("clock", "About a minute") }
         case .taptap(let installerRunning)?:
             VStack(alignment: .leading, spacing: 12) {
                 NumberedStep(1, "checkmark.circle",
@@ -702,7 +705,7 @@ struct SettingsView: View {
             Section {
                 Toggle("Performance overlay", isOn: Binding(get: { model.hud }, set: { model.setHUD($0) }))
             } footer: {
-                Text("Shows frame rate, GPU time and Game Mode status in a corner of Heartopia. Takes effect the next time the game starts.")
+                Text("Shows frame rate, GPU time, and Game Mode status in a corner of Heartopia. Takes effect the next time the game starts.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

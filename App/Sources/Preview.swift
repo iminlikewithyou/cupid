@@ -66,7 +66,7 @@ struct Preview {
             p.phase = .prefix(exists: false)
         case "windows-setting-up":
             p.phase = .prefix(exists: false)
-            p.activity = Activity(title: "Setting up", line: "Creating the Windows environment (about a minute)")
+            p.activity = Activity(title: "Setting up", line: "Creating the Windows environment")
         case "windows-update":
             p.phase = .prefix(exists: true)
         case "taptap-install":

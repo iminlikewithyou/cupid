@@ -554,7 +554,7 @@ final class AppModel: ObservableObject {
 
     func uninstall() {
         confirm("Uninstall Heartopia and its Windows environment?",
-                "Moves \(paths.dataRoot.path) to the Trash: the Wine runtime, the Windows prefix with TapTap and Heartopia (about 15 GB), caches and logs. Heartport itself stays installed; open it again to set everything up from scratch.",
+                "Moves \(paths.dataRoot.path) to the Trash: the Wine runtime, the Windows prefix with TapTap and Heartopia (about 15 GB), caches, and logs. Heartport itself stays installed; open it again to set everything up from scratch.",
                 button: "Move to Trash", destructive: true) {
             let paths = self.paths
             self.perform("Uninstalling") { r -> String in
