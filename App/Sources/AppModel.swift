@@ -463,7 +463,7 @@ final class AppModel: ObservableObject {
                 throw HeartportError(.sessionAlive, "Heartopia is running (pid \(game.pid)); quit it first.")
             }
             if restart, snapshot.isAlive {
-                r.line("Closing TapTap")
+                r.line("Restarting TapTap")
                 Logs.append(paths, "app: restarting TapTap with Heartport's settings")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             } else if snapshot.launcher.isEmpty, snapshot.isAlive {

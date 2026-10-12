@@ -486,7 +486,7 @@ private struct StepCard: View {
         case .download(let d)?:
             VStack(alignment: .leading, spacing: 12) {
                 if !d.incomplete {
-                    NumberedStep(1, "folder", "In the Install Path dialog keep the defaults and click Start Install.")
+                    NumberedStep(1, "folder", "In the Install Path dialog, keep the defaults and click Start Install.")
                     NumberedStep(2, "macwindow", "Leave TapTap open until the download finishes.")
                 }
                 VStack(alignment: .leading, spacing: 8) {
