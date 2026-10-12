@@ -68,6 +68,44 @@ fills a `DXMT_METAL_CACHE` folder from the compiled shaders embedded in a runtim
 same shader sources (e.g. Recall's `phase2-20261007.3`), and the build reuses them (iteration 1
 was built that way).
 
+### GStreamer (from heartport-20261012.3)
+
+Wine's Media Foundation decoders (H.264 and AAC among them) are winegstreamer's, so the runtime
+ships a minimal GStreamer built by `build_portable_dependencies.py`:
+
+| Component | Version | sha256 source | Build |
+|---|---|---|---|
+| libffi | 3.5.2 | GitHub release asset digest | autotools, `--disable-docs --disable-multi-os-directory` |
+| pcre2 | 10.49 | GitHub release asset digest | autotools, 8-bit only |
+| GLib | 2.86.5 | download.gnome.org `.sha256sum` | meson: introspection, tests, selinux, libmount, nls, man pages, docs, sysprof, dtrace, systemtap, libelf off; gettext is GLib's proxy-libintl subproject (frida/proxy-libintl `33934de`, pinned by GLib's wrap, fetched by meson) |
+| GStreamer | 1.26.11 | gstreamer.freedesktop.org `.sha256sum` | meson: tools (build-time checks only), no tests/examples/docs/nls/introspection/benchmarks/libunwind/libdw/ptp-helper/check |
+| gst-plugins-base | 1.26.11 | same | `-Dauto_features=disabled`, app, audioconvert, audioresample, videoconvertscale, typefind, playback, volume; ORC off |
+| gst-plugins-good | 1.26.11 | same | `-Dauto_features=disabled`, isomp4, audioparsers, deinterlace, videofilter; ORC off |
+| gst-plugins-bad | 1.26.11 | same | `-Dauto_features=disabled`, videoparsers; ORC off |
+| gst-libav | 1.26.11 | same | against the FFmpeg below (which therefore also builds libavfilter) |
+
+Meson runs from the venv with a generated cross file (x86_64 macOS host, `/usr/bin/clang -arch
+x86_64`, the same `-O2 -g0 -ffile-prefix-map` flags, the macOS 26.5 SDK and deployment target
+26.0 from the environment) and bison 3.8.2 from the toolchains. Meson components install with
+`--prefix /build/heartport/clean-deps` into a DESTDIR and are then merged into `clean-deps`, so
+GLib's and GStreamer's compiled-in default paths name no build-machine folder (all overridden at
+run time). pkgconf runs with `--define-prefix` and system paths `/usr/include`, `/usr/lib`.
+
+The assembler ships exactly these plugins in `lib/gstreamer-1.0` (`GSTREAMER_PLUGINS`), chosen
+from the elements winegstreamer asks for (`wg_parser.c`, `wg_transform.c`, `unixlib.c`):
+coreelements (capsfilter, queue, typefind), typefindfunctions, playback (decodebin), isomp4
+(qtdemux), videoparsersbad (h264parse), audioparsers (aacparse), libav (avdec_h264, avdec_aac),
+audioconvert, audioresample, videoconvertscale (videoconvert), deinterlace, videofilter
+(videoflip). Their links bring GLib (glib, gobject, gmodule), libintl (proxy), pcre2, libffi,
+the GStreamer libraries (gstreamer, base, audio, video, tag, pbutils, riff, rtp, codecparsers)
+and FFmpeg (avcodec, avformat, avutil, avfilter) into `lib/`. No gst-plugin-scanner and no
+GStreamer tools are shipped; Heartport sets `GST_REGISTRY_FORK=no`.
+
+Build-time check (not shipped), with `gst-launch-1.0` from `clean-deps/bin` under Rosetta:
+`filesrc ! qtdemux ! h264parse ! avdec_h264 ! fakesink` and
+`filesrc ! qtdemux ! aacparse ! avdec_aac ! audioconvert ! audioresample ! fakesink` on the
+game's `op.mp4` both run to EOS.
+
 ### FFmpeg
 
 `build_portable_dependencies.py` builds FFmpeg **7.1.5**
@@ -81,7 +119,7 @@ Wine's `winedmo`. LGPL 2.1 or later; configure:
 --cc='/usr/bin/clang -arch x86_64' --cxx='/usr/bin/clang++ -arch x86_64'
 --extra-cflags='-O2 -g0 -ffile-prefix-map=<workspace>=/build/heartport' --extra-ldflags=-L<clean-deps>/lib
 --pkg-config=false --disable-autodetect --enable-zlib --disable-x86asm --disable-doc
---disable-programs --enable-ffprobe --disable-avdevice --disable-avfilter --disable-postproc
+--disable-programs --enable-ffprobe --disable-avdevice --disable-postproc
 --disable-network --disable-everything --enable-protocol=file
 --enable-demuxer=mov,avi,wav,asf,mpegps,mpegvideo,mp3,aac,h264,hevc
 --enable-parser=h264,hevc,aac,mpegaudio,mpegvideo
@@ -107,11 +145,12 @@ All scripts:
 - `--jobs` accepts 1–16 (Recall: 1–4).
 
 `build_portable_runtime.py`: patches from `patches/recall/`; Wine configured with FFmpeg
-(`HAVE_FFMPEG` required in config.h); a marker in the Wine source records the applied patches,
+(`HAVE_FFMPEG` required in config.h) and GStreamer (`--with-gstreamer`, winegstreamer.so required); a marker in the Wine source records the applied patches,
 so a rerun on a patched tree skips patching (the patches overlap, and Recall's `apply_once` stops
 on such a tree).
 
-`build_portable_dependencies.py`: FFmpeg (see above); `--only ffmpeg`.
+`build_portable_dependencies.py`: FFmpeg and the GStreamer stack (see above); `--only ffmpeg`;
+`--from NAME` starts at a dependency; `--toolchains` (meson, ninja, bison).
 
 `build_portable_dxmt.py`: the source is reset to the base commit and cleaned before patching
 (reruns work); patches from `patches/recall/`; the wrapper from
@@ -142,6 +181,8 @@ directory.
   stripped every DLL; its 1.3 runtime got nvngx.dll through `derive_runtime.py`, which copies
   it as built), and the assembler checks the signature.
 - The development-path scan also covers the toolchains folder.
+- GStreamer plugins (`GSTREAMER_PLUGINS`) are copied into `lib/gstreamer-1.0` with the rpaths
+  `@loader_path` and `@loader_path/..`.
 
 `metal_cache_from_runtime.py` is Heartport's (see "Metal shaders").
 

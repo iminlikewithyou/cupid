@@ -62,6 +62,24 @@ mpeg, mp3, aac, h264 and hevc demuxers, the h264, hevc, aac and mp3 decoders and
 mp4-to-Annex-B filters. The exact configure flags are in `scripts/runtime/README.md`; the
 corresponding source is the tarball above. Wine's winedmo links it dynamically.
 
+From `heartport-20261012.3` the runtime also carries GStreamer for Wine's Media Foundation
+decoders (winegstreamer), built from source with the flags in `scripts/runtime/README.md`:
+
+| Component | Version | License | Source (sha256-pinned) |
+|---|---|---|---|
+| GStreamer core (libgstreamer, libgstbase; coreelements plugin) | 1.26.11 | LGPL-2.1-or-later (`licenses/native/gstreamer/`) | https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.26.11.tar.xz |
+| gst-plugins-base (libgstaudio/video/tag/pbutils/riff/rtp; playback, typefindfunctions, audioconvert, audioresample, videoconvertscale plugins) | 1.26.11 | LGPL-2.1-or-later (`licenses/native/gst-plugins-base/`) | https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.26.11.tar.xz |
+| gst-plugins-good (isomp4, audioparsers, deinterlace, videofilter plugins) | 1.26.11 | LGPL-2.1-or-later (`licenses/native/gst-plugins-good/`) | https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.26.11.tar.xz |
+| gst-plugins-bad (libgstcodecparsers; videoparsersbad plugin) | 1.26.11 | LGPL-2.1-or-later (`licenses/native/gst-plugins-bad/`) | https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.26.11.tar.xz |
+| gst-libav (libav plugin, over the FFmpeg above) | 1.26.11 | LGPL-2.1-or-later (`licenses/native/gst-libav/`) | https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.26.11.tar.xz |
+| GLib (glib, gobject, gmodule) | 2.86.5 | LGPL-2.1-or-later (`licenses/native/glib/COPYING`) | https://download.gnome.org/sources/glib/2.86/glib-2.86.5.tar.xz |
+| proxy-libintl (GLib's gettext stand-in, libintl.8.dylib) | frida/proxy-libintl `33934de09af6a6627eb44e310a8079df009abdbb` | LGPL-2.0-or-later (`licenses/native/glib/proxy-libintl-COPYING`) | https://github.com/frida/proxy-libintl |
+| PCRE2 | 10.49 | BSD-3-Clause with PCRE2 exception (`licenses/native/pcre2/LICENCE.md`) | https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2 |
+| libffi | 3.5.2 | MIT (`licenses/native/libffi/LICENSE`) | https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz |
+
+ORC is not used (disabled in every module). FFmpeg additionally ships libavfilter (no filters
+enabled), which gst-libav links.
+
 ## Downloaded at setup, not bundled
 
 - **TapTap Global PC client** (TapTap / XD). Heartport downloads the official installer from
