@@ -9,11 +9,13 @@ import Foundation
 /// code is not visible from macOS. The rule, from what the app can observe:
 ///
 /// 1. crash if Unity's crash marker (`Crash!!!`) is in a Player.log written since the launch;
-/// 2. crash if UnityCrashHandler64.exe is running when the game is found gone;
-/// 3. crash if the game ran less than `minimumRun` (20 s) from launch;
-/// 4. otherwise normal.
+/// 2. crash if the game ran less than `minimumRun` (20 s) from launch;
+/// 3. otherwise normal.
 ///
-/// Not yet checked against a live crash or quit; verify the next time the game is played.
+/// UnityCrashHandler64.exe being alive is not a signal: it is started with the game and was
+/// seen outliving it by hours after a forced stop (2026-10-12), so it would turn normal quits
+/// into crashes. Not yet checked against a live crash or quit; verify the next time the game
+/// is played.
 public enum GameExit {
     public enum Kind: Sendable, Equatable {
         case normal
@@ -23,21 +25,18 @@ public enum GameExit {
     public struct Facts: Sendable, Equatable {
         public var runSeconds: TimeInterval
         public var crashMarker: Bool
-        public var crashHandlerRunning: Bool
-        public init(runSeconds: TimeInterval, crashMarker: Bool = false, crashHandlerRunning: Bool = false) {
-            self.runSeconds = runSeconds; self.crashMarker = crashMarker; self.crashHandlerRunning = crashHandlerRunning
+        public init(runSeconds: TimeInterval, crashMarker: Bool = false) {
+            self.runSeconds = runSeconds; self.crashMarker = crashMarker
         }
     }
 
     public static let minimumRun: TimeInterval = 20
     public static let crashMarker = "Crash!!!"
-    public static let crashHandlerExe = "UnityCrashHandler64.exe"
     /// How much of the end of Player.log is searched for the marker.
     static let tailBytes = 256 * 1024
 
     public static func classify(_ f: Facts) -> Kind {
         if f.crashMarker { return .crash(reason: "Unity crash marker in Player.log") }
-        if f.crashHandlerRunning { return .crash(reason: "\(crashHandlerExe) is running") }
         if f.runSeconds < minimumRun { return .crash(reason: "ran \(Int(f.runSeconds)) s, under \(Int(minimumRun)) s") }
         return .normal
     }
@@ -67,7 +66,6 @@ public enum GameExit {
     /// `lastLaunch`), or when Heartport first saw it running.
     public static func facts(_ paths: Paths, launched: Date, snapshot: SessionSnapshot, now: Date = Date()) -> Facts {
         Facts(runSeconds: now.timeIntervalSince(launched),
-              crashMarker: crashMarkerInPlayerLog(paths, since: launched),
-              crashHandlerRunning: !snapshot.running(crashHandlerExe).isEmpty)
+              crashMarker: crashMarkerInPlayerLog(paths, since: launched))
     }
 }

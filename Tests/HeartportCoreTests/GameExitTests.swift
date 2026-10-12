@@ -7,7 +7,6 @@ final class GameExitTests: XCTestCase {
         XCTAssertEqual(GameExit.classify(.init(runSeconds: 20)), .normal)
         guard case .crash = GameExit.classify(.init(runSeconds: 19.9)) else { return XCTFail("short run") }
         guard case .crash = GameExit.classify(.init(runSeconds: 3600, crashMarker: true)) else { return XCTFail("marker") }
-        guard case .crash = GameExit.classify(.init(runSeconds: 3600, crashHandlerRunning: true)) else { return XCTFail("handler") }
     }
 
     func testCrashMarkerOnlyInALogWrittenSinceLaunch() throws {
@@ -36,7 +35,6 @@ final class GameExitTests: XCTestCase {
         let now = Date()
         let f = GameExit.facts(paths, launched: now.addingTimeInterval(-600), snapshot: snap, now: now)
         XCTAssertEqual(f.runSeconds, 600)
-        XCTAssertTrue(f.crashHandlerRunning)
-        XCTAssertFalse(f.crashMarker)
+        XCTAssertFalse(f.crashMarker) // a lingering crash handler is not a crash
     }
 }
