@@ -674,7 +674,7 @@ final class AppModel: ObservableObject {
 
     func repair() {
         confirm("Repair Heartport?",
-                "Reinstalls the Wine runtime from the copy inside Heartport, re-checks the Wine prefix, and checks every Heartopia file against TapTap's manifest. Your game data and settings are kept. This can take several minutes.",
+                "Reinstalls Heartport's runtime, re-checks the Windows environment, and checks every Heartopia file. Your game data and settings are kept. This can take several minutes.",
                 button: "Repair") {
             let paths = self.paths
             self.perform("Repairing", cancellable: true) { r in

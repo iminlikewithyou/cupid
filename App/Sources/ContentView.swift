@@ -220,7 +220,6 @@ private struct WelcomeView: View {
                 .padding(.top, 16)
                 .entrance(appeared, delay: 0.5, reduceMotion: reduceMotion)
             HStack(alignment: .top, spacing: 16) {
-                Fact("clock", "About 15 minutes, plus the game download")
                 if short, let free = model.freeBytes {
                     Fact("exclamationmark.triangle.fill", "This Mac only has \(free / 1_000_000_000) GB free.", warning: true)
                 } else {
@@ -465,11 +464,10 @@ private struct StepCard: View {
             }
         case .runtime?:
             VStack(alignment: .leading, spacing: 8) {
-                DetailRow("clock", "One or two minutes")
                 DetailRow("internaldrive", "About 1.5 GB")
             }
-        case .prefix(let exists)?:
-            if !exists { DetailRow("clock", "About a minute") }
+        case .prefix?:
+            EmptyView()
         case .taptap(let installerRunning)?:
             VStack(alignment: .leading, spacing: 12) {
                 NumberedStep(1, "globe", "Pick your language if the installer asks.")
