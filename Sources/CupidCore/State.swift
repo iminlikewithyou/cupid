@@ -13,8 +13,6 @@ public struct AppState: Codable, Sendable, Equatable {
     public var hud: Bool?
     /// How the game fills the screen: a `FullscreenMode` raw value; "fillNotifications" when absent.
     public var fullscreenMode: String?
-    /// Superseded by `fullscreenMode`; read only (true = "space"), cleared by `setFullscreen`.
-    public var nativeFullscreen: Bool?
     /// sha256 of the TapTap installer the user accepted when it no longer matched the pin.
     public var acceptedInstallerSHA256: String?
     public var taptapInstalled: Bool?
@@ -32,12 +30,11 @@ public struct AppState: Codable, Sendable, Equatable {
 
     /// The saved fullscreen mode.
     public var fullscreen: FullscreenMode {
-        fullscreenMode.flatMap(FullscreenMode.init(rawValue:)) ?? (nativeFullscreen == true ? .space : .fillNotifications)
+        fullscreenMode.flatMap(FullscreenMode.init(rawValue:)) ?? .fillNotifications
     }
 
     public mutating func setFullscreen(_ mode: FullscreenMode) {
         fullscreenMode = mode.rawValue
-        nativeFullscreen = nil
     }
 
     public static func load(_ paths: Paths) -> AppState {

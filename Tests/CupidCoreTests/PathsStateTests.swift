@@ -209,31 +209,27 @@ final class SessionTests: XCTestCase {
         let options = GameLauncher.Options(state: state)
         XCTAssertEqual(options.fullscreen, .fill)
         XCTAssertTrue(options.hud)
-        try AppState.update(paths) { $0.setFullscreen(.space) }
-        state = AppState.load(paths)
-        XCTAssertEqual(GameLauncher.Options(state: state).fullscreen, .space)
         // An unknown value falls back to the default.
         state.fullscreenMode = "sideways"
         XCTAssertEqual(state.fullscreen, .fillNotifications)
     }
 
-    func testOldNativeFullscreenReadsAsSpace() throws {
-        var state = try AppState.decode(Data(#"{"runtime":"r","nativeFullscreen":true}"#.utf8))
-        XCTAssertEqual(state.fullscreen, .space)
-        XCTAssertEqual(try AppState.decode(Data(#"{"nativeFullscreen":false}"#.utf8)).fullscreen, .fillNotifications)
-        // fullscreenMode wins, and choosing a mode drops the old field.
-        state.fullscreenMode = "fill"
-        XCTAssertEqual(state.fullscreen, .fill)
-        state.setFullscreen(.fillNotifications)
-        XCTAssertNil(state.nativeFullscreen)
+    func testRemovedFullscreenValuesReadAsTheDefault() throws {
+        // "space" (the removed Own Space mode) is an unknown value now.
+        var state = try AppState.decode(Data(#"{"runtime":"r","fullscreenMode":"space"}"#.utf8))
+        XCTAssertEqual(state.fullscreen, .fillNotifications)
+        XCTAssertEqual(GameLauncher.Options(state: state).fullscreen, .fillNotifications)
+        // The old nativeFullscreen key is ignored on decode and not written back.
+        state = try AppState.decode(Data(#"{"runtime":"r","nativeFullscreen":true}"#.utf8))
+        XCTAssertEqual(state.runtime, "r")
+        XCTAssertEqual(state.fullscreen, .fillNotifications)
         XCTAssertFalse(String(decoding: try state.encoded(), as: UTF8.self).contains("nativeFullscreen"))
     }
 
     func testFullscreenArgumentValues() {
         XCTAssertEqual(FullscreenMode(argument: "fill"), .fill)
         XCTAssertEqual(FullscreenMode(argument: "notifications"), .fillNotifications)
-        XCTAssertEqual(FullscreenMode(argument: "space"), .space)
-        XCTAssertNil(FullscreenMode(argument: "Space"))
+        XCTAssertNil(FullscreenMode(argument: "space"))
     }
 
     func testSetupCompleteShownRoundTripsAndDefaultsToAbsent() throws {

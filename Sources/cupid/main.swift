@@ -11,7 +11,7 @@ Commands:
   setup [--step runtime|prefix|taptap|all]   Install what is missing (default: all)
         [--archive PATH] [--repair] [--no-wait] [--wait SECONDS] [--accept-new-installer]
   install-game [--no-wait] [--wait SECONDS]  Open TapTap and follow the game download
-  play [--hud|--no-hud] [--fullscreen notifications|fill|space] [--no-wait] [--dxmt-info]
+  play [--hud|--no-hud] [--fullscreen notifications|fill] [--no-wait] [--dxmt-info]
        [--wine-debug SPEC] [--input-stats]   Start the game (--fullscreen default: the saved
                                              setting, else notifications)
   stop [--yes]                               End every Wine process (wineserver -k)
@@ -295,7 +295,7 @@ struct CLI {
         options.fullscreen = state.fullscreen
         if let value = args.options["fullscreen"] {
             guard let mode = FullscreenMode(argument: value) else {
-                throw fail("--fullscreen takes notifications, fill, or space (got \(value))")
+                throw fail("--fullscreen takes notifications or fill (got \(value))")
             }
             options.fullscreen = mode
         }

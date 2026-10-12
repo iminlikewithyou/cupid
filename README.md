@@ -29,8 +29,8 @@ natively for you, and launches it when you open Cupid. It's that simple.
 
 ## Settings
 
-- Three fullscreen modes: fill the screen with notifications showing (the default), fill the
-  screen with notifications hidden, or an own Space like a Mac game.
+- Two fullscreen modes: fill the screen with notifications showing (the default), or fill the
+  screen with notifications hidden.
 - A performance overlay.
 - Opening Cupid while holding Option opens to the Cupid launcher instead of starting the game.
 

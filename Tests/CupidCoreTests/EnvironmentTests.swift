@@ -81,8 +81,7 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertNil(env(.fill)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
         XCTAssertNil(env(.fillNotifications)["WINEMAC_NATIVE_FULLSCREEN"])
         XCTAssertEqual(env(.fillNotifications)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"], "xdt.exe")
-        XCTAssertEqual(env(.space)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
-        XCTAssertNil(env(.space)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
+        XCTAssertEqual(FullscreenMode.allCases, [.fillNotifications, .fill])
     }
 
     func testInheritedVariablesAreStripped() {

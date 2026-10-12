@@ -848,17 +848,15 @@ struct SettingsView: View {
 extension FullscreenMode {
     var title: String {
         switch self {
-        case .fill: "Fill the screen"
-        case .fillNotifications: "Fill the screen, show notifications"
-        case .space: "Own Space"
+        case .fillNotifications: "Show notifications"
+        case .fill: "Hide notifications"
         }
     }
 
     var detail: String {
         switch self {
-        case .fill: "Covers the whole screen, including beside the camera. Notifications stay hidden while you play."
         case .fillNotifications: "Covers the whole screen and lets notification banners appear over the game."
-        case .space: "Puts Heartopia in its own Space, like a Mac game: notifications, Mission Control, and app switching work normally. The strip beside the camera stays black."
+        case .fill: "Covers the whole screen, including beside the camera. Notifications stay hidden while you play."
         }
     }
 }

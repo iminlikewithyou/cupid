@@ -67,7 +67,7 @@ main module like `WINEMAC_MOUSELOOK`). A listed program's "fullscreen window" (b
 covering a screen, the kind Unity's Fullscreen Window mode makes) goes into its own macOS
 fullscreen Space at the normal window level, instead of floating above everything at
 `NSStatusWindowLevel + 1` (which hides notification banners and keeps the game out of Mission
-Control and Space switching).
+Control and Space switching). Cupid does not expose or set it currently.
 
 - Enters (`toggleFullScreen:` once, with `NSWindowCollectionBehaviorFullScreenPrimary`) when
   such a window is visible and the application is active; re-checked when the application

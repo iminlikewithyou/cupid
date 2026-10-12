@@ -132,29 +132,24 @@ GST_REGISTRY_1_0=<data>/cache/gstreamer-registry.bin  GST_REGISTRY_FORK=no  (GST
 WINEMAC_MOUSELOOK=xdt.exe  WINE_GAME_MODE=xdt.exe
 WINE_NO_DOCK_ICON=TapTapGlobal.exe
 WINEMAC_APP_NAME=Heartopia
-WINEMAC_NATIVE_FULLSCREEN=xdt.exe  (only with Fullscreen set to "Own Space")
-WINEMAC_FULLSCREEN_NORMAL_LEVEL=xdt.exe  (with Fullscreen set to "Fill the screen, show notifications", the default)
+WINEMAC_FULLSCREEN_NORMAL_LEVEL=xdt.exe  (with Fullscreen set to "Show notifications", the default)
 WINEMAC_APP_ICON=<rt>/lib/wine/game-mode/xdt.app/Contents/Resources/Heartopia.icns  (only if it exists)
 HOME=<data>/home  USER=player  TMPDIR=<data>/tmp
 ```
 
-The `WINEMAC_APP_*`, `WINEMAC_NATIVE_FULLSCREEN`, and `WINEMAC_FULLSCREEN_NORMAL_LEVEL` variables are read by Cupid's own Mac
+The `WINEMAC_APP_*` and `WINEMAC_FULLSCREEN_NORMAL_LEVEL` variables are read by Cupid's own Mac
 driver patches (`patches/cupid/`, runtime `cupid-20261012.4` on) and ignored by older
 runtimes: the Dock and Cmd-Tab name the game "Heartopia" with the Game Mode bundle's icon, and
-the game's fullscreen window (borderless, covering the screen) gets its own fullscreen Space, or
-stays covering the panel at the normal window level. `GameModeBundle` writes the icon when it creates `xdt.app`. The name and
+the game's fullscreen window (borderless, covering the screen) stays covering the panel at the
+normal window level. `WINEMAC_NATIVE_FULLSCREEN`: supported by the runtime, not set by Cupid. `GameModeBundle` writes the icon when it creates `xdt.app`. The name and
 icon are set for every Wine process; only a process that shows a Dock icon is renamed (TapTap's
-launcher has none, `WINE_NO_DOCK_ICON`). The fullscreen variables come from one three-way setting
-(state.json `fullscreenMode`, Settings "Fullscreen", `play --fullscreen notifications|fill|space`
-for one launch; a missing `fullscreenMode` reads as `fillNotifications`, except an older
-state.json's `nativeFullscreen: true`, which reads as "space"):
+launcher has none, `WINE_NO_DOCK_ICON`). The fullscreen variable comes from one two-way setting
+(state.json `fullscreenMode`, Settings "Fullscreen", `play --fullscreen notifications|fill`
+for one launch; a missing or unknown `fullscreenMode` reads as `fillNotifications`):
 - `fillNotifications` (default, `WINEMAC_FULLSCREEN_NORMAL_LEVEL`): the whole panel at the normal
   window level, beside the notch too, so notification banners appear over the game.
-- `fill` (neither variable): the game covers the whole panel, beside the notch too, and floats
+- `fill` (no variable): the game covers the whole panel, beside the notch too, and floats
   above notification banners.
-- `space` (`WINEMAC_NATIVE_FULLSCREEN`): its own fullscreen Space; the game gets 1728x1084 with a
-  black strip beside the notch, but notifications, Mission Control, and Cmd-Tab behave as for a
-  Mac game.
 
 `dxmt.conf` (rewritten before each launch whenever it differs from the template, so a
 changed template reaches existing installs on their next play):
@@ -234,7 +229,7 @@ agreement; it had no text because the prefix had no Arial in `windows\Fonts`, fi
 font links above, with `wine-coremessaging-dispatcher-queue.patch` for the
 `Windows.System.DispatcherQueue` it asks for), black cutscene video (FFmpeg and GStreamer in
 the runtime, and `wine-mfreadwrite-shared-textures.patch` for Unity's shared textures), and
-the bars beside the notch (the "Fill the screen" fullscreen modes cover the whole panel).
+the bars beside the notch (both fullscreen modes cover the whole panel).
 
 ## Process detection
 

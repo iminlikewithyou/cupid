@@ -2,20 +2,17 @@ import Foundation
 
 /// How the game's fullscreen window sits on the Mac (Settings "Fullscreen").
 public enum FullscreenMode: String, CaseIterable, Sendable, Codable {
+    /// Covers the whole panel, beside the camera too, at the normal window level: notification
+    /// banners appear over it (WINEMAC_FULLSCREEN_NORMAL_LEVEL). The default.
+    case fillNotifications
     /// Covers the whole panel, beside the camera too, above notification banners.
     case fill
-    /// Covers the whole panel at the normal window level: notification banners appear over it
-    /// (WINEMAC_FULLSCREEN_NORMAL_LEVEL). The default.
-    case fillNotifications
-    /// Its own fullscreen Space, like a Mac game (WINEMAC_NATIVE_FULLSCREEN).
-    case space
 
     /// The `play --fullscreen` argument values.
     public init?(argument: String) {
         switch argument {
         case "fill": self = .fill
         case "notifications", "fillNotifications": self = .fillNotifications
-        case "space": self = .space
         default: return nil
         }
     }
@@ -32,8 +29,8 @@ public enum LaunchEnvironment {
         public var wineDebug: String?
         /// `WINEMAC_INPUT_STATS` file prefix; the driver writes `<prefix>-<pid>.jsonl`.
         public var inputStatsPrefix: URL?
-        /// The "Fullscreen" setting: `.space` sets WINEMAC_NATIVE_FULLSCREEN,
-        /// `.fillNotifications` WINEMAC_FULLSCREEN_NORMAL_LEVEL, `.fill` neither.
+        /// The "Fullscreen" setting: `.fillNotifications` sets WINEMAC_FULLSCREEN_NORMAL_LEVEL,
+        /// `.fill` sets nothing.
         public var fullscreen: FullscreenMode
 
         public init(hud: Bool = false, dxmtInfoLog: Bool = false, wineDebug: String? = nil, inputStatsPrefix: URL? = nil,
@@ -97,9 +94,9 @@ public enum LaunchEnvironment {
             "WINE_NO_DOCK_ICON": Game.launcherExeName,
             // Cupid's Mac driver patches (cupid-20261012.4 on; ignored by older runtimes):
             // the Dock shows "Heartopia" (and the icon below) instead of "xdt" and the exe's icon.
-            // The "Fullscreen" setting (below): WINEMAC_NATIVE_FULLSCREEN gives the game's
-            // fullscreen window its own fullscreen Space; WINEMAC_FULLSCREEN_NORMAL_LEVEL keeps it
-            // covering the panel but at the normal window level, under notification banners.
+            // The "Fullscreen" setting (below): WINEMAC_FULLSCREEN_NORMAL_LEVEL keeps the game's
+            // fullscreen window covering the panel but at the normal window level, under
+            // notification banners.
             "WINEMAC_APP_NAME": appName,
             // GStreamer (winegstreamer's Media Foundation decoders): only the runtime's own
             // plugins, a registry in the data folder, and in-process plugin scanning (no
@@ -129,7 +126,6 @@ public enum LaunchEnvironment {
         switch options.fullscreen {
         case .fill: break
         case .fillNotifications: env["WINEMAC_FULLSCREEN_NORMAL_LEVEL"] = Game.exeName
-        case .space: env["WINEMAC_NATIVE_FULLSCREEN"] = Game.exeName
         }
         if let stats = options.inputStatsPrefix {
             env["WINEMAC_INPUT_STATS"] = stats.path
