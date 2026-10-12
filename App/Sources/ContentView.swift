@@ -268,9 +268,9 @@ private struct AllSetView: View {
                 .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
-                Text("Heartopia is ready")
+                Text("Heartport is ready")
                     .font(.system(size: 34, weight: .bold))
-                Text("Heartopia ported to Mac")
+                Text("Heartopia is all set up")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -432,7 +432,7 @@ private struct StepCard: View {
                 ? "A few settings need updating."
                 : "Next, Heartport sets up the Windows environment Heartopia runs in."
         case .taptap?:
-            return "Heartopia is free and comes from TapTap, a game launcher. Its installer needs a few clicks from you."
+            return "Heartopia comes from TapTap, a game launcher like Steam. Its installer needs a few clicks from you."
         case .download?:
             return "In TapTap, find Heartopia and click \u{201C}Download & Install\u{201D}."
         case .ready(.gameRunning)?:
@@ -484,9 +484,8 @@ private struct StepCard: View {
         case .download(let d)?:
             VStack(alignment: .leading, spacing: 12) {
                 if !d.incomplete {
-                    NumberedStep(1, "globe", "Pick a language if TapTap asks.")
-                    NumberedStep(2, "folder", "In the Install Path dialog keep the defaults and click Start Install.")
-                    NumberedStep(3, "macwindow", "Leave TapTap open until the download finishes.")
+                    NumberedStep(1, "folder", "In the Install Path dialog keep the defaults and click Start Install.")
+                    NumberedStep(2, "macwindow", "Leave TapTap open until the download finishes.")
                 }
                 VStack(alignment: .leading, spacing: 8) {
                     downloadRows(d)
