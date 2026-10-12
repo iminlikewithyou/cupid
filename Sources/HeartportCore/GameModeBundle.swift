@@ -16,14 +16,22 @@ public enum GameModeBundle {
     public static let addedFiles = [
         relativePath + "/Contents/Info.plist",
         relativePath + "/Contents/MacOS/wine",
+        relativePath + "/Contents/Resources/en.lproj/InfoPlist.strings",
         relativePath + "/Contents/_CodeSignature/CodeResources",
     ]
+    /// The Dock labels a bundled application with the bundle's display name, which is its folder
+    /// name ("xdt") unless the bundle has a localized display name: `LSHasLocalizedDisplayName`,
+    /// a `CFBundleDisplayName` equal to the folder name, and the localized name in
+    /// `InfoPlist.strings` (Finder's rule for localized app names). WINEMAC_APP_NAME only renames
+    /// the running application (Cmd-Tab), not the Dock tile.
+    public static let displayNameStrings = "Contents/Resources/en.lproj/InfoPlist.strings"
     /// The Dock icon, when there is one (`CFBundleIconFile`).
     public static let iconFile = "Contents/Resources/Heartopia.icns"
 
     /// Bumped whenever the generated bundle changes; an older bundle is regenerated.
     /// 1: identifier and game keys (no version key). 2: display name and icon.
-    public static let bundleVersion = 2
+    /// 3: localized display name, so the Dock says Heartopia instead of xdt.
+    public static let bundleVersion = 3
     public static let versionKey = "HeartportBundleVersion"
     /// Where the icon came from: "game" (the exe's own icon), "heartport" (Heartport's icon),
     /// or "none".
@@ -37,7 +45,10 @@ public enum GameModeBundle {
         [
             "CFBundleIdentifier": identifier,
             "CFBundleName": "Heartopia",
-            "CFBundleDisplayName": "Heartopia",
+            // The folder name; the localized name is "Heartopia" (displayNameStrings).
+            "CFBundleDisplayName": "xdt",
+            "LSHasLocalizedDisplayName": true,
+            "CFBundleDevelopmentRegion": "en",
             "CFBundleExecutable": "wine",
             "LSApplicationCategoryType": "public.app-category.simulation-games",
             "LSSupportsGameMode": true,
@@ -167,6 +178,9 @@ public enum GameModeBundle {
             if source != "none" { info["CFBundleIconFile"] = "Heartopia" }
             let plist = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
             try plist.write(to: bundle.appendingPathComponent("Contents/Info.plist"))
+            let strings = bundle.appendingPathComponent(displayNameStrings)
+            try fm.createDirectory(at: strings.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("\"CFBundleDisplayName\" = \"Heartopia\";\n\"CFBundleName\" = \"Heartopia\";\n".utf8).write(to: strings)
             var copy = data
             let at = try uuidOffset(data)
             copy.replaceSubrange(at..<at + 16, with: uuid5(namespace: Array(data[at..<at + 16]), name: identifier))

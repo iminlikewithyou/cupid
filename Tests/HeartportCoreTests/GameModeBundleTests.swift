@@ -29,6 +29,7 @@ final class GameModeBundleTests: XCTestCase {
 
         let made = engine.appendingPathComponent(GameModeBundle.relativePath)
         let added = ["CFBundleDisplayName", "CFBundleIconFile", GameModeBundle.versionKey,
+                     "LSHasLocalizedDisplayName", "CFBundleDevelopmentRegion",
                      GameModeBundle.iconSourceKey, GameModeBundle.iconFromGameTriedKey]
         func plist(_ bundle: URL) throws -> NSDictionary {
             let dict = try PropertyListSerialization.propertyList(from: Data(contentsOf: bundle.appendingPathComponent("Contents/Info.plist")), format: nil) as! NSDictionary
@@ -39,7 +40,10 @@ final class GameModeBundleTests: XCTestCase {
         XCTAssertEqual(try plist(made), try plist(existing))
         let info = try XCTUnwrap(GameModeBundle.installedInfo(runtime: engine))
         XCTAssertEqual(info["CFBundleName"] as? String, "Heartopia")
-        XCTAssertEqual(info["CFBundleDisplayName"] as? String, "Heartopia")
+        XCTAssertEqual(info["CFBundleDisplayName"] as? String, "xdt")
+        XCTAssertEqual(info["LSHasLocalizedDisplayName"] as? Bool, true)
+        let strings = try String(contentsOf: made.appendingPathComponent(GameModeBundle.displayNameStrings), encoding: .utf8)
+        XCTAssertTrue(strings.contains("\"CFBundleDisplayName\" = \"Heartopia\";"))
         XCTAssertEqual(info[GameModeBundle.versionKey] as? Int, GameModeBundle.bundleVersion)
         XCTAssertEqual(info[GameModeBundle.iconSourceKey] as? String, "none")
         // Same executable bytes apart from the signature (it now also seals the new Info.plist
