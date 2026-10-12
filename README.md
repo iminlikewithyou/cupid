@@ -2,10 +2,13 @@
 
 # Cupid
 
-Cupid is a simple **Heartopia** launcher for Mac. It guides you through installing the game natively for you, and launches it when you
-open Cupid. It's that simple.
+Cupid is a simple **Heartopia** launcher for Mac. It guides you through installing the game
+natively for you, and launches it when you open Cupid. It's that simple.
 
-<p align="center"><img src="docs/images/cupid.png" width="632" alt="Cupid's welcome screen on first open"></p>
+<p align="center">
+  <img src="docs/images/cupid-light.png" width="400" alt="Cupid's welcome screen on first open, in light mode">
+  <img src="docs/images/cupid-dark.png" width="400" alt="Cupid's welcome screen on first open, in dark mode">
+</p>
 
 ## Requirements
 
