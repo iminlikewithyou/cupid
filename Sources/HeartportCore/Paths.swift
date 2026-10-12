@@ -101,6 +101,8 @@ public struct Paths: Sendable, Equatable {
     public var gameDir: URL { driveC.appendingPathComponent("TapTapGlobal/Apps/\(Game.appID)", isDirectory: true) }
     public var gameExe: URL { gameDir.appendingPathComponent(Game.exeName) }
     public var gameFileInfo: URL { gameDir.appendingPathComponent("GameFileInfo.json") }
+    /// The game's version file (GameVersion).
+    public var gameVersionFile: URL { gameDir.appendingPathComponent("xdt_Data/StreamingAssets/version.xdtconf") }
     public var launcherDir: URL { driveC.appendingPathComponent("Program Files/TapTapGlobal", isDirectory: true) }
     public var launcherExe: URL { launcherDir.appendingPathComponent(Game.launcherExeName) }
     public var usersDir: URL { driveC.appendingPathComponent("users", isDirectory: true) }

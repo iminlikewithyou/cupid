@@ -359,6 +359,7 @@ struct CLI {
         else if let have = r.game.bytesOnDisk { g += ": \(bytes(have))" }
         if let listed = r.game.filesListed { g += " (\(listed) files listed, \(r.game.missing ?? 0) missing, \(r.game.wrongSize ?? 0) wrong size, \(r.game.signedPE ?? 0) signed PE" + (r.game.md5Checked.map { $0 > 0 ? ", \($0) md5 sampled, \(r.game.md5Mismatch ?? 0) differ" : "" } ?? "") + ")" }
         say("Game:     \(g)")
+        if let v = r.game.version { say("          version \(v)" + (r.game.build.map { " (build \($0))" } ?? "")) }
         if r.session.alive {
             say("Session:  alive (wineserver \(r.session.wineserverPIDs.map(String.init).joined(separator: ", ")))")
             if let game = r.session.game {

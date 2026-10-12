@@ -40,6 +40,9 @@ public struct StatusReport: Codable, Sendable {
         public var signedPE: Int?
         public var md5Checked: Int?
         public var md5Mismatch: Int?
+        /// From version.xdtconf (GameVersion); nil when the file is absent.
+        public var version: String?
+        public var build: String?
     }
     public struct SessionStatus: Codable, Sendable {
         public var alive: Bool
@@ -102,6 +105,7 @@ public struct StatusReport: Codable, Sendable {
                             launcherInstalled: TapTapLauncher.isInstalled(paths))
 
         var game = GameStatus(state: "not-started", exePresent: fm.fileExists(atPath: paths.gameExe.path))
+        if let v = GameVersion.read(paths) { game.version = v.version; game.build = v.build }
         func fill(_ c: GameInstall.Check) {
             game.filesListed = c.listed; game.missing = c.missing.count; game.wrongSize = c.wrongSize.count; game.signedPE = c.signedPE.count
             game.md5Checked = c.md5Checked; game.md5Mismatch = c.md5Mismatch.count
