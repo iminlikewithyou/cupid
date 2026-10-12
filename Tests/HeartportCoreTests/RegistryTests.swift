@@ -121,6 +121,7 @@ final class RegistryTests: XCTestCase {
         try write("[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion] 1\n\"CurrentBuild\"=\"19045\"\n\"ProductName\"=\"Microsoft Windows 10\"\n", to: paths.systemReg)
         try FileManager.default.createDirectory(at: paths.usersDir.appendingPathComponent("crossover/Documents"), withIntermediateDirectories: true)
         state.runtime = paths.runtimeVersion
+        try WindowsFonts.create(in: paths.windowsFonts)
         XCTAssertEqual(setup.plan(state: state), [])
 
         try FileManager.default.createSymbolicLink(atPath: paths.usersDir.appendingPathComponent("crossover/Desktop").path, withDestinationPath: "/Users/p/Desktop")

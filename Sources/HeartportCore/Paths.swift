@@ -105,6 +105,8 @@ public struct Paths: Sendable, Equatable {
     public var gameVersionFile: URL { gameDir.appendingPathComponent("xdt_Data/StreamingAssets/version.xdtconf") }
     public var launcherDir: URL { driveC.appendingPathComponent("Program Files/TapTapGlobal", isDirectory: true) }
     public var launcherExe: URL { launcherDir.appendingPathComponent(Game.launcherExeName) }
+    /// `C:\windows\Fonts` (WindowsFonts links macOS fonts here).
+    public var windowsFonts: URL { driveC.appendingPathComponent("windows/Fonts", isDirectory: true) }
     public var usersDir: URL { driveC.appendingPathComponent("users", isDirectory: true) }
 
     /// Directories created up front (the spike's `mt_dirs`).

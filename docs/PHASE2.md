@@ -92,6 +92,7 @@ adopt an existing one rather than rebuild it.
      in-game changes are kept. A "Reset graphics" action re-applies them.
 4. Replace any symlinks in `drive_c/users/*/` with empty directories (this Wine made none,
    keep the step).
+5. Link macOS's Arial files (`/System/Library/Fonts/Supplemental/Arial.ttf`, `Arial Bold`, `Arial Italic`, `Arial Bold Italic`, `Arial Unicode`) into `drive_c/windows/Fonts` when missing and present on the Mac (`WindowsFonts.all`); Unity's built-in Arial is found only there, and without it the XD SDK agreement dialog has no text. `status` lists missing ones.
 
 ## Launch contract (verified)
 

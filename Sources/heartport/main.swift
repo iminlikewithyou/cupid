@@ -152,7 +152,7 @@ struct CLI {
         let steps = setup.plan(state: AppState.load(paths))
         if steps.isEmpty {
             // Nothing is written, not even state.json: an adopted spike prefix stays byte-identical.
-            say("Prefix up to date at \(paths.prefix.path): Windows 10, RetinaMode=N, \(RegistrySeeds.all.count - 1) game settings present, no user-folder symlinks.")
+            say("Prefix up to date at \(paths.prefix.path): Windows 10, RetinaMode=N, \(RegistrySeeds.all.count - 1) game settings present, macOS fonts linked, no user-folder symlinks.")
             return
         }
         say("Prefix needs: " + steps.map(\.description).joined(separator: "; "))
@@ -355,7 +355,8 @@ struct CLI {
         for p in (r.runtime.problems ?? []).prefix(10) { say("          ! \(p)") }
         if r.prefix.exists {
             let seeds = r.prefix.pendingSeeds.isEmpty ? "all seeds present" : "pending seeds: \(r.prefix.pendingSeeds.joined(separator: ", "))"
-            say("Prefix:   Windows 10 \(yn(r.prefix.windows10)), RetinaMode=\(r.prefix.retinaMode ?? "unset"), \(seeds)")
+            let fonts = r.prefix.missingFonts.isEmpty ? "fonts linked" : "missing fonts: \(r.prefix.missingFonts.joined(separator: ", "))"
+            say("Prefix:   Windows 10 \(yn(r.prefix.windows10)), RetinaMode=\(r.prefix.retinaMode ?? "unset"), \(seeds), \(fonts)")
         } else {
             say("Prefix:   not created")
         }

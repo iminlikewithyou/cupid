@@ -58,6 +58,7 @@ public struct SetupInputs: Sendable, Equatable {
     public var retinaMode: String?
     public var pendingSeeds: [String] = []
     public var userLinks: [String] = []
+    public var missingFonts: [String] = []
     /// Runtime version wineboot last ran with (`state.prefixRuntime ?? state.runtime`).
     public var prefixBootedWith: String?
     public var launcherInstalled = false
@@ -84,6 +85,7 @@ public struct SetupInputs: Sendable, Equatable {
         retinaMode = r.prefix.retinaMode
         pendingSeeds = r.prefix.pendingSeeds
         userLinks = r.prefix.userLinks
+        missingFonts = r.prefix.missingFonts
         prefixBootedWith = r.state.prefixRuntime ?? r.state.runtime
         launcherInstalled = r.taptap.launcherInstalled
         installerSession = r.session.installerSession
@@ -99,7 +101,7 @@ public struct SetupInputs: Sendable, Equatable {
 
     /// Mirrors `PrefixSetup.plan` (empty plan = up to date).
     public var prefixReady: Bool {
-        prefixExists && windows10 && pendingSeeds.isEmpty && userLinks.isEmpty
+        prefixExists && windows10 && pendingSeeds.isEmpty && userLinks.isEmpty && missingFonts.isEmpty
             && (prefixBootedWith == nil || prefixBootedWith == expectedRuntime)
     }
 

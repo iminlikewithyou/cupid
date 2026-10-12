@@ -20,6 +20,8 @@ public struct StatusReport: Codable, Sendable {
         public var retinaMode: String?
         public var pendingSeeds: [String]
         public var userLinks: [String]
+        /// WindowsFonts links not yet in windows/Fonts (sources present on this Mac).
+        public var missingFonts: [String]
         public var dxmtConfCurrent: Bool
     }
     public struct TapTap: Codable, Sendable {
@@ -96,6 +98,7 @@ public struct StatusReport: Codable, Sendable {
                             retinaMode: user?.string(RegistrySeeds.macDriverKey, "RetinaMode"),
                             pendingSeeds: RegistrySeeds.pending(in: user).map(\.name),
                             userLinks: exists ? setup.userLinks() : [],
+                            missingFonts: exists ? WindowsFonts.pending(in: paths.windowsFonts).map(\.name) : [],
                             dxmtConfCurrent: DxmtConfig.isCurrent(at: paths.dxmtConf))
 
         let installerFile = TapTapInstaller.file(paths)

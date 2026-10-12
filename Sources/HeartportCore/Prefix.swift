@@ -23,6 +23,7 @@ public struct PrefixSetup: Sendable {
         case winecfgWin10
         case seed(RegistrySeed)
         case replaceLinks([String])
+        case fontLinks([String])
 
         public var description: String {
             switch self {
@@ -30,6 +31,7 @@ public struct PrefixSetup: Sendable {
             case .winecfgWin10: "winecfg -v win10"
             case .seed(let s): "reg add HKCU\\\(s.key) \(s.name)"
             case .replaceLinks(let l): "replace \(l.count) symlink(s) in drive_c/users"
+            case .fontLinks(let f): "link \(f.count) macOS font(s) into windows/Fonts"
             }
         }
     }
@@ -75,6 +77,8 @@ public struct PrefixSetup: Sendable {
         steps += RegistrySeeds.pending(in: user, force: forceSeeds).map(Step.seed)
         let links = exists ? userLinks() : []
         if !links.isEmpty || !exists { steps.append(.replaceLinks(links)) }
+        let fonts = WindowsFonts.pending(in: paths.windowsFonts)
+        if !fonts.isEmpty { steps.append(.fontLinks(fonts.map(\.name))) }
         return steps
     }
 
@@ -105,6 +109,10 @@ public struct PrefixSetup: Sendable {
                     log("  \(rel) -> \((try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) ?? "?"): replaced")
                     try FileManager.default.removeItem(at: url)
                     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+                }
+            case .fontLinks:
+                for link in try WindowsFonts.create(in: paths.windowsFonts) {
+                    log("  windows/Fonts/\(link.name) -> \(link.source)")
                 }
             }
         }
