@@ -9,7 +9,7 @@ final class RegistryTests: XCTestCase {
             ("NewUserGraphicsQualityString_h2322609765", 1),
             ("ORIGIN_QUALITY_h3319388771", 1),
             ("RenderScaleString_h868707778", 2),
-            ("ShaderQualityString_h3156345780", 0),
+            ("ShaderQualityString_h3156345780", 1),
             ("FXAAEnabledString_h219820651", 0),
             ("BloomEnabledString_h1769754614", 1),
             ("PcUICanvasScale_h3623448666", 1),
@@ -80,7 +80,7 @@ final class RegistryTests: XCTestCase {
     "Screenmanager Resolution Height_h2627697771"=dword:00000438
     "Screenmanager Resolution Use Native_h1405027254"=dword:00000000
     "Screenmanager Resolution Width_h182942802"=dword:00000780
-    "ShaderQualityString_h3156345780"=dword:00000000
+    "ShaderQualityString_h3156345780"=dword:00000001
     "SoundEffectVolume_h2094452281"=dword:00000032
     "SoundVolumeString_h3855669083"=dword:00000019
     "SCHEME_PROFILE_h4026564772"=hex:53,74,61,6e,00

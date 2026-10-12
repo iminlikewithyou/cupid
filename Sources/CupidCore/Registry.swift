@@ -157,7 +157,7 @@ public enum RegistrySeeds {
         ("NewUserGraphicsQualityString_h2322609765", 1),    // stops the first-run auto-pick of Ultra
         ("ORIGIN_QUALITY_h3319388771", 1),
         ("RenderScaleString_h868707778", 2),                // High
-        ("ShaderQualityString_h3156345780", 0),             // Low (Visual Effects)
+        ("ShaderQualityString_h3156345780", 1),             // Medium
         ("FXAAEnabledString_h219820651", 0),
         ("BloomEnabledString_h1769754614", 1),
         ("PcUICanvasScale_h3623448666", 1),                 // 85%
