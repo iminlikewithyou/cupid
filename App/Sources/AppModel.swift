@@ -316,8 +316,12 @@ final class AppModel: ObservableObject {
     /// The window's wording for a failure: core messages that name processes, pids or commands
     /// become plain text (the log keeps `message`).
     static func windowMessage(_ error: Error) -> String {
-        if let e = error as? HeartportError, e.kind == .sessionAlive {
-            return "Heartport is still finishing the previous step. Try again in a moment."
+        if let e = error as? HeartportError {
+            switch e.kind {
+            case .sessionAlive: return "Heartport is still finishing the previous step. Try again in a moment."
+            case .timeout, .process: return "Heartport couldn't finish the previous step. Try again."
+            default: break
+            }
         }
         return message(error)
     }

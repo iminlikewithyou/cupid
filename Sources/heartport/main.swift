@@ -305,7 +305,7 @@ struct CLI {
                 throw fail("Not stopped. Pass --yes to stop without asking.", .cancelled)
             }
         }
-        say("Stopping (wineserver -k, then -w)")
+        say("Stopping the Wine session")
         try Session.stop(paths: paths, log: Logs.stop(paths))
         Logs.append(paths, "stop")
         let left = SessionSnapshot.take(paths).processes

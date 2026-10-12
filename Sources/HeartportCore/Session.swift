@@ -191,7 +191,7 @@ public struct WindowInfo: Sendable, Codable, Equatable {
 public enum Session {
     /// Ends the session quickly, logging each step with its duration to `log`: TapTap's
     /// processes first (SIGTERM, SIGKILL after 2 s; its Electron processes do not wait for a
-    /// graceful exit), then `wineserver -k` and `wineserver -w` under the full environment,
+    /// graceful exit), then `wineserver -k`, a direct signal to the server if it is still there,
     /// then any client that outlived the server.
     public static func stop(paths: Paths, log: URL) throws {
         let started = Date()
@@ -205,12 +205,24 @@ public enum Session {
             let killed = terminate(launcher, grace: 2)
             note("TapTap ended" + (killed > 0 ? " (\(killed) killed after 2 s)" : ""))
         }
+        // Ask the server to quit, then make sure of it. `wineserver -k` has been seen to hang
+        // for its whole timeout, with the server surviving, after TapTap's Electron processes
+        // were force-ended (2026-10-12, fresh run 3); so the server pid is signalled directly
+        // if it is still there, and the wait polls the process list instead of `wineserver -w`.
         let wine = Wine(paths: paths)
-        if SessionSnapshot.take(paths).isAlive {
-            _ = try? wine.wineserver(["-k"], log: log, timeout: 10)
+        var servers = SessionSnapshot.take(paths).wineservers.map(\.pid)
+        if !servers.isEmpty {
+            _ = try? wine.wineserver(["-k"], log: log, timeout: 3)
             note("wineserver -k")
-            try wine.wineserver(["-w"], log: log, timeout: 30)
-            note("wineserver -w")
+            servers = servers.filter { kill($0, 0) == 0 }
+            if !servers.isEmpty {
+                let killed = terminate(servers, grace: 2)
+                note("wineserver signalled directly (\(servers.count), \(killed) killed)")
+            }
+            guard waitForExit(paths: paths, timeout: 15) else {
+                throw HeartportError(.process, "The previous session did not end.")
+            }
+            note("wineserver gone")
         }
         // Clients normally exit with their server, but a game under Rosetta has been seen to
         // outlive it (still running, parent 1). Finish them: SIGTERM, then SIGKILL.
