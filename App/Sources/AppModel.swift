@@ -84,8 +84,14 @@ final class AppModel: ObservableObject {
     private var refreshing = false
     private var firstRefreshDone = false
     private var timer: Timer?
-    /// This app instance started the TapTap launcher with Heartport's flags.
+    /// This app instance started (or is starting) the TapTap launcher with Heartport's flags.
     private var startedLauncher = false
+    /// The launcher was running at the last refresh.
+    private var launcherWasRunning = false
+    /// TapTap appeared without Heartport starting it (the installer's Launch button): it renders
+    /// blank without Heartport's flags, so it is restarted once the installer is gone. Set when
+    /// it was first seen; the card shows "Opening TapTap…" meanwhile.
+    @Published private(set) var launcherRestartPending: Date?
     private var autoLaunch: Bool
     /// The game Heartport is watching, and when it was launched (for GameExit's short-run rule).
     private var watchedGame: (pid: Int32, launched: Date)?
@@ -95,7 +101,12 @@ final class AppModel: ObservableObject {
         self.autoLaunch = autoLaunch
     }
 
-    var busy: Bool { activity != nil }
+    var busy: Bool { activity != nil || launcherRestartPending != nil }
+
+    /// The activity the card shows: a running operation, or the pending TapTap restart.
+    var shownActivity: Activity? {
+        activity ?? (launcherRestartPending != nil ? Activity(title: "Opening TapTap\u{2026}", line: "Starting TapTap") : nil)
+    }
 
     /// The logs folder exists (Show Logs vs Show in Finder).
     var hasLogs: Bool { previewHasLogs ?? FileManager.default.fileExists(atPath: paths.logs.path) }
@@ -170,6 +181,7 @@ final class AppModel: ObservableObject {
         } else if watchedGame != nil {
             gameExited()
         }
+        noteLauncher(new.session.launcherRunning, first: !firstRefreshDone)
         report = new
         phase = new.phase
         hud = new.state.hud ?? false
@@ -193,15 +205,33 @@ final class AppModel: ObservableObject {
             }
             return
         }
+        if activity == nil, let since = launcherRestartPending, case .download = phase,
+           !new.session.installerRunning || Date().timeIntervalSince(since) > 10 {
+            // The installer's Launch opened TapTap without Heartport's flags (blank window). Once
+            // the installer has closed (or after 10 s: TapTap is installed by then), restart it.
+            launcherRestartPending = nil
+            openLauncherForDownload(restart: true)
+            return
+        }
         guard !busy, let old, let phase else { return }
         switch (old, phase) {
-        case (.taptap, .download(let d)) where d.launcherRunning && !new.session.installerRunning && !startedLauncher:
-            // The installer opens TapTap without Heartport's flags (blank Electron window).
-            openLauncherForDownload(restart: true)
         case (.download, .ready):
             confirmDownload()
         default:
             break
+        }
+    }
+
+    /// Tracks who started TapTap (see `launcherRestartPending`).
+    private func noteLauncher(_ running: Bool, first: Bool) {
+        defer { launcherWasRunning = running }
+        if first { return } // already open when Heartport started: leave it alone
+        if !running {
+            launcherRestartPending = nil
+            if activity == nil { startedLauncher = false }
+        } else if !launcherWasRunning, !startedLauncher, launcherRestartPending == nil {
+            Logs.append(paths, "app: TapTap opened without Heartport's settings; restarting it")
+            launcherRestartPending = Date()
         }
     }
 
@@ -229,7 +259,8 @@ final class AppModel: ObservableObject {
                         case .success(let value): then(value)
                         case .failure(let error):
                             let cancelled = (error as? HeartportError)?.kind == .cancelled
-                            self.failure = cancelled ? nil : [failureTitle, Self.message(error)].compactMap { $0 }.joined(separator: " ")
+                            if !cancelled { Logs.append(self.paths, "app: \(title) failed: \(Self.message(error))") }
+                            self.failure = cancelled ? nil : [failureTitle, Self.windowMessage(error)].compactMap { $0 }.joined(separator: " ")
                             if cancelled { self.notice = "\(title): cancelled." }
                             self.showWindow()
                         }
@@ -249,6 +280,15 @@ final class AppModel: ObservableObject {
     static func message(_ error: Error) -> String {
         if let e = error as? HeartportError { return e.message }
         return error.localizedDescription
+    }
+
+    /// The window's wording for a failure: core messages that name processes, pids or commands
+    /// become plain text (the log keeps `message`).
+    static func windowMessage(_ error: Error) -> String {
+        if let e = error as? HeartportError, e.kind == .sessionAlive {
+            return "Heartport is still finishing the previous step. Try again in a moment."
+        }
+        return message(error)
     }
 
     private func confirm(_ title: String, _ text: String, button: String, destructive: Bool = false,
@@ -308,14 +348,17 @@ final class AppModel: ObservableObject {
         let paths = paths
         perform("Preparing the TapTap installer") { r -> TapTapInstaller.Check? in
             let snapshot = SessionSnapshot.take(paths)
-            if !snapshot.installer.isEmpty { return nil } // already open
+            if !snapshot.installer.isEmpty { // already open
+                _ = Operations.bringToFront(paths, timeout: 2) { $0.installer }
+                return nil
+            }
             try SessionGuard.requireIdle(paths, to: "start the TapTap installer")
             r.line("Downloading the TapTap Global installer")
             return try TapTapInstaller.download(paths, progress: Operations.byteProgress(r, "TapTap installer"))
         } then: { check in
             switch check {
             case nil:
-                self.notice = "The TapTap installer is already open."
+                break
             case .pinned?:
                 self.runInstaller()
             case .missing?:
@@ -335,9 +378,12 @@ final class AppModel: ObservableObject {
     private func runInstaller() {
         let paths = paths
         perform("Starting the TapTap installer") { r in
-            r.line("Opening \"Welcome to TapTap Setup\"")
+            r.line("Opening the installer")
             let pid = try TapTapInstaller.run(paths)
             Logs.append(paths, "app: TapTap installer started (wine pid \(pid))")
+            if !Operations.bringToFront(paths, timeout: 15, { $0.installer }) {
+                Logs.append(paths, "app: no installer window after 15 s")
+            }
         }
     }
 
@@ -356,21 +402,36 @@ final class AppModel: ObservableObject {
 
     /// Start TapTap with the flags that make its window render. `restart`: end a running
     /// launcher first (one the installer opened without them renders blank).
+    /// The card shows "Opening TapTap…" with its buttons disabled until TapTap's window is on
+    /// screen (or 25 s pass): TapTap takes several seconds to show it.
     func openLauncherForDownload(restart: Bool) {
+        guard activity == nil, !previewing else { return }
         let paths = paths
-        perform(restart ? "Restarting TapTap" : "Opening TapTap") { r in
+        startedLauncher = true
+        perform("Opening TapTap\u{2026}") { r in
+            let started = Date()
             let snapshot = SessionSnapshot.take(paths)
             if let game = snapshot.game {
                 throw HeartportError(.sessionAlive, "Heartopia is running (pid \(game.pid)); quit it first.")
             }
-            if restart, snapshot.isAlive, snapshot.installer.isEmpty {
-                r.line("Closing the TapTap window that was opened without Heartport's settings")
+            if restart, snapshot.isAlive {
+                r.line("Closing TapTap")
+                Logs.append(paths, "app: restarting TapTap with Heartport's settings")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
+            } else if snapshot.launcher.isEmpty, snapshot.isAlive {
+                // The installer's session takes a few seconds to wind down after it closes.
+                r.line("Waiting for the previous step to finish")
+                if !Session.waitForExit(paths: paths, timeout: 15) {
+                    Logs.append(paths, "app: session still alive after 15 s; trying to open TapTap anyway")
+                }
             }
-            r.line("Starting TapTapGlobal.exe")
+            r.line("Starting TapTap")
             if let pid = try TapTapLauncher.run(paths) { Logs.append(paths, "app: launcher started (wine pid \(pid))") }
-        } then: { _ in
-            self.startedLauncher = true
+            r.line("Waiting for TapTap's window")
+            let left = max(2, 25 - Date().timeIntervalSince(started))
+            if !Operations.bringToFront(paths, timeout: left, { $0.launcher }) {
+                Logs.append(paths, "app: no TapTap window after 25 s")
+            }
         }
     }
 
@@ -501,11 +562,14 @@ final class AppModel: ObservableObject {
 
     func updateGame() {
         let paths = paths
-        perform("Opening TapTap") { r -> Bool in
-            r.line("Starting TapTapGlobal.exe")
-            return try TapTapLauncher.run(paths) != nil
+        startedLauncher = true
+        perform("Opening TapTap\u{2026}") { r -> Bool in
+            r.line("Starting TapTap")
+            let started = try TapTapLauncher.run(paths) != nil
+            r.line("Waiting for TapTap's window")
+            _ = Operations.bringToFront(paths, timeout: 25) { $0.launcher }
+            return started
         } then: { started in
-            if started { self.startedLauncher = true }
             self.notice = (started ? "TapTap is open." : "TapTap is already open.")
                 + " If it offers a Heartopia update, run it. Then close TapTap and press Play."
         }

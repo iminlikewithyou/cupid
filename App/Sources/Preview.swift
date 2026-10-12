@@ -84,8 +84,7 @@ struct Preview {
             p.eta = 21 * 60
         case "download-restart":
             p.phase = .download(.init(launcherRunning: true))
-            p.activity = Activity(title: "Restarting TapTap",
-                                  line: "Closing the TapTap window that was opened without Heartport's settings")
+            p.activity = Activity(title: "Opening TapTap\u{2026}", line: "Waiting for TapTap's window")
         case "download-incomplete":
             var d = download(total, launcherRunning: true)
             d.incomplete = true

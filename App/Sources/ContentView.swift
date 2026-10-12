@@ -327,11 +327,11 @@ private struct StepCard: View {
 
     /// TapTap or another program of ours is still open (ready.launcherOpen / .sessionBusy).
     private var finishingUp: Bool {
-        model.activity == nil && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
+        model.shownActivity == nil && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
     }
 
     private var title: String {
-        if let activity = model.activity { return activity.title }
+        if let activity = model.shownActivity { return activity.title }
         switch model.phase {
         case nil: return "Checking this Mac"
         case .rosettaMissing?: return "Install Rosetta 2"
@@ -357,9 +357,9 @@ private struct StepCard: View {
                 ? "A few settings need updating."
                 : "Next, Heartport sets up the Windows environment Heartopia runs in."
         case .taptap?:
-            return "Heartopia comes from TapTap, a game store like Steam. Its installer needs two clicks from you."
+            return "Heartopia is free and comes from TapTap, a game launcher. Its installer needs a few clicks from you."
         case .download?:
-            return "In TapTap, find Heartopia and click \u{201C}Download & Install\u{201D}. Keep TapTap open until it finishes."
+            return "In TapTap, find Heartopia and click \u{201C}Download & Install\u{201D}."
         case .ready(.gameRunning)?:
             return "Heartopia is open in its own window."
         case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
@@ -395,9 +395,11 @@ private struct StepCard: View {
             if !exists { DetailRow("clock", "About a minute") }
         case .taptap(let installerRunning)?:
             VStack(alignment: .leading, spacing: 12) {
-                NumberedStep(1, "checkmark.circle",
-                             "Click the circle next to \u{201C}I have read and agree to the above terms\u{201D}. This accepts TapTap's terms.")
-                NumberedStep(2, "arrow.down.circle", "Click Install Now. Leave Custom Options as they are.")
+                NumberedStep(1, "globe", "Pick your language if the installer asks.")
+                NumberedStep(2, "checkmark.circle",
+                             "Click the circle next to \u{201C}I have read and agree to the above terms\u{201D}.")
+                NumberedStep(3, "arrow.down.circle", "Click Install Now. Leave Custom Options as they are.")
+                NumberedStep(4, "play.circle", "When it says Installation complete, press Launch.")
                 if installerRunning {
                     StatusRow(ok: true, "The installer is open in its own window.")
                 } else {
@@ -405,17 +407,14 @@ private struct StepCard: View {
                 }
             }
         case .download(let d)?:
-            VStack(alignment: .leading, spacing: 8) {
-                if d.launcherRunning {
-                    StatusRow(ok: true, "TapTap is open in its own window.")
-                } else {
-                    DetailRow("macwindow", "TapTap's window opens separately.")
+            VStack(alignment: .leading, spacing: 12) {
+                if !d.incomplete {
+                    NumberedStep(1, "globe", "Pick a language if TapTap asks.")
+                    NumberedStep(2, "folder", "In the Install Path dialog keep the defaults and click Start Install.")
+                    NumberedStep(3, "macwindow", "Leave TapTap open until the download finishes.")
                 }
-                if d.fraction == nil {
-                    DetailRow("internaldrive", "The game is about 13 GB")
-                }
-                if d.incomplete {
-                    StatusRow(ok: false, "Some game files are damaged. Use TapTap's verify, or Repair in the Heartport menu.")
+                VStack(alignment: .leading, spacing: 8) {
+                    downloadRows(d)
                 }
             }
         case .ready(let state)?:
@@ -427,10 +426,24 @@ private struct StepCard: View {
         }
     }
 
+    @ViewBuilder private func downloadRows(_ d: SetupPhase.Download) -> some View {
+                if d.launcherRunning {
+                    StatusRow(ok: true, "TapTap is open in its own window.")
+                } else {
+                    DetailRow("macwindow", "TapTap's window opens separately.")
+                }
+                if d.fraction == nil {
+                    DetailRow("internaldrive", "The game is about 13 GB")
+                }
+                if d.incomplete {
+                    StatusRow(ok: false, "Some game files are damaged. Use TapTap's verify, or Repair in the Heartport menu.")
+                }
+    }
+
     // MARK: progress
 
     @ViewBuilder private var progress: some View {
-        if let activity = model.activity {
+        if let activity = model.shownActivity {
             VStack(alignment: .leading, spacing: 6) {
                 if let f = activity.fraction {
                     ProgressView(value: f)
@@ -508,10 +521,10 @@ private struct StepCard: View {
     /// open; otherwise Show Logs, or Show in Finder before there are any logs.
     @ViewBuilder private var secondaryButton: some View {
         Group {
-            if let activity = model.activity, activity.cancellable {
+            if let activity = model.shownActivity, activity.cancellable {
                 Button(activity.cancelling ? "Cancelling…" : "Cancel") { model.cancel() }
                     .disabled(activity.cancelling)
-            } else if model.activity == nil, case .taptap(false)? = model.phase {
+            } else if model.shownActivity == nil, case .taptap(false)? = model.phase {
                 Button("I've Installed It") { model.recheckTapTap() }
             } else if model.hasLogs {
                 Button("Show Logs") { model.showLogs() }
@@ -573,6 +586,7 @@ private struct NumberedStep: View {
                 .foregroundStyle(.secondary)
             Image(systemName: systemImage)
                 .foregroundStyle(.tint)
+                .frame(width: 20) // symbols differ in width; keep the text aligned
             Text(text)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -667,11 +681,10 @@ private struct Callout: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: systemImage).foregroundStyle(tint)
             Text(firstLine)
-                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
                 .help(text)
-            Spacer(minLength: 8)
             if let showLogs {
                 Button("Show Logs", action: showLogs).buttonStyle(.link)
             }
@@ -681,6 +694,8 @@ private struct Callout: View {
                 .accessibilityLabel("Dismiss")
         }
         .font(.callout)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

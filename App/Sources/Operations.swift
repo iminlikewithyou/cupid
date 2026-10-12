@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import HeartportCore
 
 /// The long, synchronous setup steps the app runs off the main thread. They mirror
@@ -110,5 +110,35 @@ enum Operations {
         }
         Logs.append(paths, "app: repair done")
         return summary.joined(separator: " ")
+    }
+
+    /// Brings a Wine program's window to the front: every 0.5 s, activates the processes `pick`
+    /// selects from a fresh snapshot, until one of them has a window on screen (activated once
+    /// more) or `timeout` passes. Returns true once a window is on screen.
+    static func bringToFront(_ paths: Paths, timeout: TimeInterval,
+                             _ pick: @escaping @Sendable (SessionSnapshot) -> [WineProcess]) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            let pids = pick(SessionSnapshot.take(paths)).map(\.pid)
+            let window = pids.isEmpty ? nil
+                : WindowInfo.list(pids: Set(pids)).first { $0.layer == 0 && $0.width > 1 && $0.height > 1 }
+            activate(window.map { [$0.pid] } ?? pids)
+            if window != nil { return true }
+            if Date() >= deadline { return false }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+    }
+
+    /// Activates the apps of `pids` (Wine programs become regular apps once their window
+    /// server connection is up; before that there is nothing to activate).
+    static func activate(_ pids: [Int32]) {
+        guard !pids.isEmpty else { return }
+        DispatchQueue.main.async {
+            for pid in pids {
+                guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+                NSApp.yieldActivation(to: app)
+                app.activate(options: [.activateAllWindows])
+            }
+        }
     }
 }
