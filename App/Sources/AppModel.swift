@@ -86,7 +86,9 @@ final class AppModel: ObservableObject {
     private var timer: Timer?
     /// This app instance started the TapTap launcher with Heartport's flags.
     private var startedLauncher = false
-    private let autoLaunch: Bool
+    private var autoLaunch: Bool
+    /// The game Heartport is watching, and when it was launched (for GameExit's short-run rule).
+    private var watchedGame: (pid: Int32, launched: Date)?
 
     init(paths: Paths, autoLaunch: Bool) {
         self.paths = paths
@@ -121,13 +123,23 @@ final class AppModel: ObservableObject {
         DispatchQueue.main.async { MainActor.assumeIsolated { self.showWindow() } }
     }
 
+    /// Option held while opening: show the window in its current state instead of playing.
+    func skipAutoLaunch() {
+        autoLaunch = false
+        Logs.append(paths, "app: Option held at launch; not starting the game")
+    }
+
     func start() {
         guard !previewing else { return }
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.windowIsVisible() else { return }
-                self.refresh()
+                guard let self else { return }
+                if self.windowIsVisible() {
+                    self.refresh()
+                } else if self.watchedGame != nil {
+                    self.checkGameStillRunning()
+                }
             }
         }
     }
@@ -150,6 +162,14 @@ final class AppModel: ObservableObject {
 
     private func apply(_ new: StatusReport) {
         let old = phase
+        if let game = new.session.game {
+            if watchedGame?.pid != game.pid {
+                let launched = new.state.lastLaunch.flatMap { ISO8601DateFormatter().date(from: $0) }
+                watchedGame = (game.pid, min(launched ?? Date(), Date()))
+            }
+        } else if watchedGame != nil {
+            gameExited()
+        }
         report = new
         phase = new.phase
         hud = new.state.hud ?? false
@@ -395,11 +415,12 @@ final class AppModel: ObservableObject {
     private func startGame(stopFirst: Bool, auto: Bool) {
         let paths = paths
         if !auto { hideWindow() }
+        let started = Date()
         perform("Starting Heartopia", failureTitle: "Heartopia didn't start.") { r in
             if stopFirst {
                 let snapshot = SessionSnapshot.take(paths)
                 if let game = snapshot.game { throw HeartportError(.sessionAlive, "Heartopia is already running (pid \(game.pid)).") }
-                r.line("Closing the open Wine session")
+                r.line("Closing the previous session")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             }
             let hud = AppState.load(paths).hud ?? false
@@ -407,7 +428,68 @@ final class AppModel: ObservableObject {
             let result = try GameLauncher(paths: paths).play(.init(hud: hud), waitForWindow: true, log: { r.line($0) })
             return result.game?.pid
         } then: { pid in
-            if let pid { NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateAllWindows]) }
+            if let pid {
+                self.watchedGame = (pid, started)
+                NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateAllWindows])
+            }
+        }
+    }
+
+    // MARK: game exit (docs/PLAN.md "Decisions": quit with the game)
+
+    /// While the window is hidden only the process list is checked (StatusReport.gather is heavier).
+    private func checkGameStillRunning() {
+        guard let watched = watchedGame, !refreshing else { return }
+        let paths = paths
+        Task.detached(priority: .utility) {
+            let gone = SessionSnapshot.take(paths).game?.pid != watched.pid
+            await MainActor.run {
+                if gone, self.watchedGame?.pid == watched.pid { self.gameExited() }
+            }
+        }
+    }
+
+    /// The watched game is gone. Normal exit: quit if the window is hidden (after up to 5 s for
+    /// the wineserver to finish, so the next launch finds an idle session), else stay in the ready
+    /// state. Crash (GameExit's rule): show the window with a callout; never quit.
+    private func gameExited() {
+        guard let watched = watchedGame, !previewing else { return }
+        watchedGame = nil
+        let paths = paths
+        Task.detached(priority: .userInitiated) {
+            let facts = GameExit.facts(paths, launched: watched.launched, snapshot: SessionSnapshot.take(paths))
+            let kind = GameExit.classify(facts)
+            switch kind {
+            case .normal:
+                Logs.append(paths, "app: Heartopia (pid \(watched.pid)) exited after \(Int(facts.runSeconds)) s: normal")
+            case .crash(let reason):
+                Logs.append(paths, "app: Heartopia (pid \(watched.pid)) exited after \(Int(facts.runSeconds)) s: crash (\(reason))")
+            }
+            await MainActor.run {
+                if case .crash = kind {
+                    self.failure = "Heartopia stopped unexpectedly."
+                    self.showWindow()
+                    self.refresh()
+                } else if self.windowIsVisible() {
+                    self.refresh()
+                } else {
+                    self.quitAfterSessionEnds()
+                }
+            }
+        }
+    }
+
+    private func quitAfterSessionEnds() {
+        let paths = paths
+        Task.detached(priority: .utility) {
+            let idle = Session.waitForExit(paths: paths, timeout: 5)
+            if !idle { Logs.append(paths, "app: wineserver still running after 5 s; quitting anyway") }
+            await MainActor.run {
+                // Something may have changed meanwhile (window shown from the Dock, game restarted).
+                guard !self.windowIsVisible(), self.watchedGame == nil, !self.busy else { self.refresh(); return }
+                Logs.append(paths, "app: quitting with the game")
+                NSApp.terminate(nil)
+            }
         }
     }
 

@@ -76,6 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.openSettings(nil) } }
             }
         } else {
+            // Holding Option while opening skips the game and shows the window (Settings, Repair).
+            if NSEvent.modifierFlags.contains(.option) { model.skipAutoLaunch() }
             model.start()
         }
     }

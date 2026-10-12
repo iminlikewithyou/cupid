@@ -634,6 +634,11 @@ struct SettingsView: View {
                 LabeledContent("Data folder") {
                     Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
                 }
+            } footer: {
+                Text("Hold Option while opening Heartport to reach this window without starting the game.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .formStyle(.grouped)
