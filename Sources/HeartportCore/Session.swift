@@ -137,6 +137,17 @@ public enum Session {
         let wine = Wine(paths: paths)
         _ = try? wine.wineserver(["-k"], log: log, timeout: 30)
         try wine.wineserver(["-w"], log: log, timeout: 60)
+        // Clients normally exit with their server, but a game under Rosetta has been seen to
+        // outlive it (still running, parent 1). Finish them: SIGTERM, then SIGKILL.
+        for signal in [SIGTERM, SIGKILL] {
+            let leftovers = SessionSnapshot.take(paths).processes
+            if leftovers.isEmpty { return }
+            for process in leftovers { kill(process.pid, signal) }
+            let deadline = Date().addingTimeInterval(5)
+            while Date() < deadline, !SessionSnapshot.take(paths).processes.isEmpty {
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+        }
     }
 
     /// Wait until no wineserver of our runtimes is alive.
