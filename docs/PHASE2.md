@@ -250,7 +250,8 @@ reference implementation and may be re-implemented, not copied (PolyForm license
   (instructions + "I've installed it"), game download (progress), ready. Then every open
   of the app launches the game and shows nothing unless something fails.
 - Menu (Cupid): About Cupid (versions, credits, Show Licenses), Settings…, Play, Update Game,
-  Reset Graphics…, Show Logs, Repair…, Uninstall….
+  Reset Graphics…, Show Logs, Repair…, Uninstall…. Uninstall moves the data folder and
+  Cupid.app to the Trash, then quits.
 - Settings window: Fullscreen (three modes), Performance overlay (Metal HUD), Data folder.
   Persisted in `state.json`.
 - Holding Option while opening the app skips the auto-launch and opens to the launcher. The app

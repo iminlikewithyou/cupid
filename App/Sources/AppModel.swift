@@ -798,20 +798,30 @@ final class AppModel: ObservableObject {
     }
 
     func uninstall() {
-        confirm("Uninstall Heartopia and its Windows environment?",
-                "Moves \(paths.dataRoot.path) to the Trash: the Wine runtime, the Windows prefix with TapTap and Heartopia (about 15 GB), caches, and logs. Cupid itself stays installed; open it again to set everything up from scratch.",
+        confirm("Uninstall Cupid and Heartopia?",
+                "This will move Cupid and everything it set up, including Heartopia (about 15 GB), to the Trash.",
                 button: "Move to Trash", destructive: true) {
             let paths = self.paths
-            self.perform("Uninstalling") { r -> String in
+            let app = Bundle.main.bundleURL
+            self.perform("Uninstalling") { r -> Bool in
                 let fm = FileManager.default
-                guard fm.fileExists(atPath: paths.dataRoot.path) else { return "Nothing to remove." }
                 try SessionGuard.requireIdle(paths, to: "uninstall")
-                r.line("Moving \(paths.dataRoot.lastPathComponent) to the Trash")
-                // No log line afterwards: writing one would recreate the data folder.
-                try fm.trashItem(at: paths.dataRoot, resultingItemURL: nil)
-                return "Cupid's data folder is in the Trash."
-            } then: { message in
-                self.notice = message
+                if fm.fileExists(atPath: paths.dataRoot.path) {
+                    r.line("Moving Heartopia to the Trash")
+                    // No log line afterwards: writing one would recreate the data folder.
+                    try fm.trashItem(at: paths.dataRoot, resultingItemURL: nil)
+                }
+                r.line("Moving Cupid to the Trash")
+                // A read-only disk image, an app the user doesn't own, or a translocated copy
+                // can't be trashed; the data is already gone, so report that instead of failing.
+                return (try? fm.trashItem(at: app, resultingItemURL: nil)) != nil
+            } then: { appTrashed in
+                if appTrashed {
+                    NSApp.terminate(nil)
+                } else {
+                    self.notice = "Heartopia is in the Trash. Cupid could not move itself there, so drag Cupid to the Trash to finish."
+                    self.showWindow()
+                }
             }
         }
     }
