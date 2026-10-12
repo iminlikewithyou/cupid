@@ -164,6 +164,8 @@ public enum RegistrySeeds {
         ("SoundVolumeString_h3855669083", 25),              // music 25%
         ("SoundEffectVolume_h2094452281", 50),              // effects 50%
         ("Screenmanager Fullscreen mode_h3630240806", 1),   // fullscreen window
+        ("CameraSensitivity_h1088127345", 10),            // Camera sensitivity 10, the game's default is 8
+        ("SeaCameraSensitivity_h405975366", 10),          // Camera sensitivity 10, the game's default is 8
     ].map { RegistrySeed(key: gameKey, name: $0.0, value: .dword($0.1), policy: .whenAbsent) }
 
     /// The HKCU seeds (what Reset graphics re-applies).

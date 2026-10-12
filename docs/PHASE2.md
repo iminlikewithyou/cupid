@@ -91,6 +91,8 @@ adopt an existing one rather than rebuild it.
      | `SoundVolumeString_h3855669083` | 25 (music 25%) |
      | `SoundEffectVolume_h2094452281` | 50 (effects 50%) |
      | `Screenmanager Fullscreen mode_h3630240806` | 1 |
+     | `CameraSensitivity_h1088127345` | 10 (the game's default is 8) |
+     | `SeaCameraSensitivity_h405975366` | 10 (the game's default is 8) |
 
      No resolution or screen-size values (`PcResolutionLevelString`,
      `LastPcResolutionLevelStringV1`, `Screenmanager Resolution Use Native/Width/Height`):
