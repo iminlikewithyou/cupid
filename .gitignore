@@ -5,3 +5,4 @@ Resources/runtime/
 .DS_Store
 build/
 __pycache__/
+docs/internal/
