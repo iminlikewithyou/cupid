@@ -80,7 +80,7 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack {
-                        Button("Show Licences") {
+                        Button("Show Licenses") {
                             if !model.previewing, let lic = Self.licensesFolder { revealInFinder(lic) }
                         }
                         Spacer()

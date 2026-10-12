@@ -141,7 +141,7 @@ Wine is configured with `FFMPEG_CFLAGS=-I<clean-deps>/include` and
 `FFMPEG_LIBS=-L<clean-deps>/lib -lavutil -lavformat -lavcodec`; `winedmo.so` links
 `@rpath/libavformat.61.dylib`, `libavcodec.61.dylib` and `libavutil.59.dylib`, which the
 assembler copies to `lib/` (swscale and swresample are built but nothing links them, so they are
-not shipped). Licences: `licenses/native/ffmpeg/{LICENSE.md,COPYING.LGPLv2.1}`.
+not shipped). Licenses: `licenses/native/ffmpeg/{LICENSE.md,COPYING.LGPLv2.1}`.
 
 ## Changes from Recall's scripts
 

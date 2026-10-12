@@ -34,7 +34,7 @@ func render(_ px: Int) -> Data {
     let s = CGFloat(px)
     let u = s / 1024 // one point of the 1024 grid
 
-    // Apple's macOS grid: an 824x824 body centred on the 1024 canvas, corner radius 185.4,
+    // Apple's macOS grid: an 824x824 body centered on the 1024 canvas, corner radius 185.4,
     // with a soft drop shadow inside the 100-point margin.
     let body = NSRect(x: 100 * u, y: 100 * u, width: 824 * u, height: 824 * u)
     let square = NSBezierPath(roundedRect: body, xRadius: 185.4 * u, yRadius: 185.4 * u)
@@ -57,14 +57,14 @@ func render(_ px: Int) -> Data {
               toCenter: NSPoint(x: body.midX, y: body.maxY), radius: body.width * 0.75, options: [])
     NSGraphicsContext.restoreGraphicsState()
 
-    // Heart (56% of the body's width) and the port bar beneath it, centred as one group.
+    // Heart (56% of the body's width) and the port bar beneath it, centered as one group.
     let hw = body.width * 0.56
     let hh = hw * 0.90
     let visible = hh * 0.94 // the curves top out a little below the box
     let gap = body.width * 0.055
     let barW = body.width * 0.20, barH = max(1, body.width * 0.045)
     let group = visible + gap + barH
-    let groupBottom = body.midY - group / 2 + body.width * 0.01 // a hair above centre, optically
+    let groupBottom = body.midY - group / 2 + body.width * 0.01 // a hair above center, optically
     let barRect = NSRect(x: body.midX - barW / 2, y: groupBottom, width: barW, height: barH)
     let heartRect = NSRect(x: body.midX - hw / 2, y: groupBottom + barH + gap, width: hw, height: hh)
     let h = heart(in: heartRect)

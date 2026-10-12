@@ -27,7 +27,7 @@ the game.
 ## How it works
 
 Cupid runs the Windows version of Heartopia in a private Windows environment with its own
-build of Wine and DXMT (Direct3D 11 on Metal). No Steam, CrossOver, or Windows licence is
+build of Wine and DXMT (Direct3D 11 on Metal). No Steam, CrossOver, or Windows license is
 involved.
 
 The runtime is built from pinned sources by [`scripts/runtime`](scripts/runtime/README.md):
@@ -38,7 +38,7 @@ patches in `patches/recall` come from [Recall](https://github.com/AsherJN/recall
 [`patches/cupid`](patches/cupid/README.md): shareable video textures, a minimal
 DispatcherQueue, the game's name and icon in the Dock, and the fullscreen modes.
 
-Licences for every bundled component are in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).
+Licenses for every bundled component are in [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md).
 TapTap and Heartopia are downloaded from their publishers and are not part of Cupid.
 
 ## Building
@@ -62,6 +62,6 @@ sha256 and release notes, commits and tags, then prints the push and `gh release
 The app bundles a command-line tool at `Cupid.app/Contents/Helpers/cupid` with the same
 engine; run `cupid --help`.
 
-## Licence
+## License
 
-Apache License 2.0 ([LICENSE](LICENSE)). Bundled components keep their own licences.
+Apache License 2.0 ([LICENSE](LICENSE)). Bundled components keep their own licenses.

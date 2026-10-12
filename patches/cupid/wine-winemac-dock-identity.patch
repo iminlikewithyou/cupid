@@ -96,7 +96,7 @@ index 8f0dbed..c7c9334 100644
 + * private _LSSetApplicationInformationItem (as Qt and the JDK do), resolved
 + * here so that a macOS without it only loses the name.  WINEMAC_APP_ICON is
 + * an image file (.icns or .png) that replaces the icon taken from the exe.
-+ * Both unset: unchanged behaviour.
++ * Both unset: unchanged behavior.
 + */
 +static void setup_app_identity(void)
 +{

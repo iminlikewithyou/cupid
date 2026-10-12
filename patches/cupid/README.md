@@ -21,7 +21,7 @@ is not involved.
 
 The driver patches are inert unless their environment variables are set; with none set the
 driver behaves exactly as Recall's. Cupid sets them for every Wine process (docs/PHASE2.md,
-launch contract). The other two change behaviour for every program (see below).
+launch contract). The other two change behavior for every program (see below).
 
 The patches are `git diff`s made against a copy of the folder they change as the earlier patches
 leave it. To change one: copy that folder into a separate, temporary git repository, commit,

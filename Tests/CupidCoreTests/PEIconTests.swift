@@ -139,15 +139,15 @@ final class PEIconTests: XCTestCase {
         try Data(pe).write(to: exe)
         let image = try XCTUnwrap(PEIcon.largestImage(exe: exe))
         let drawn = try XCTUnwrap(MacIcon.render(image, pixels: 1024))
-        // Corners are transparent (margins); the centre is the icon.
+        // Corners are transparent (margins); the center is the icon.
         let ctx = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 4096,
                             space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         ctx.draw(drawn, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
         let px = ctx.data!.assumingMemoryBound(to: UInt8.self)
         XCTAssertEqual(px[3], 0, "corner pixel is transparent")
-        let centre = (512 * 1024 + 512) * 4
-        XCTAssertEqual(px[centre + 3], 255)
-        XCTAssertGreaterThan(px[centre], 200)
+        let center = (512 * 1024 + 512) * 4
+        XCTAssertEqual(px[center + 3], 255)
+        XCTAssertGreaterThan(px[center], 200)
         let icns = root.appendingPathComponent("x.icns")
         try MacIcon.writeICNS(image, to: icns)
         let source = try XCTUnwrap(CGImageSourceCreateWithURL(icns as CFURL, nil))

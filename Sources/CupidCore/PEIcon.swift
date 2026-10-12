@@ -105,7 +105,7 @@ public enum PEIcon {
         }
     }
 
-    /// The largest image of the executable's first icon group (deepest colour on a tie), as a
+    /// The largest image of the executable's first icon group (deepest color on a tie), as a
     /// one-image .ico file. Nil when the file has no icon resources.
     public static func largestIcon(exe data: [UInt8]) -> Data? {
         guard let res = Resources(data), let first = res.data(type: rtGroupIcon, id: nil).first else { return nil }
@@ -136,7 +136,7 @@ public enum PEIcon {
 /// Mac app icons drawn from another image.
 public enum MacIcon {
     /// `image` on Apple's macOS icon grid, as App/Resources/make-icon.swift draws Cupid's:
-    /// an 824/1024 rounded square (corner radius 185.4/1024) centred with ~10% margins, filled
+    /// an 824/1024 rounded square (corner radius 185.4/1024) centered with ~10% margins, filled
     /// with the image (aspect fill) and a soft drop shadow, at `pixels` square.
     public static func render(_ image: CGImage, pixels: Int) -> CGImage? {
         guard let ctx = CGContext(data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0,

@@ -23,7 +23,7 @@ PATCHES_DIR = ROOT / 'patches/recall'
 # Cupid's own Wine patches, applied after Recall's set (see patches/cupid/README.md).
 CUPID_PATCHES_DIR = ROOT / 'patches/cupid'
 CUPID_PATCHES = {
-    'wine-winemac-dock-identity.patch': '9bffbed675ca6b4635a9e1489b339923d5320eb706caac9b96e7f8cf33f5ad03',
+    'wine-winemac-dock-identity.patch': '67809f50119e8466488886c10c61f7ac9a61cb15b0c318dbec8d32960e8f9a11',
     'wine-winemac-native-fullscreen.patch': '1ac4047a6c38f7c921d7fa116698a8abb83a9effd5c11eec39ae13c9c1a8a48f',
     'wine-winemac-fullscreen-normal-level.patch': '0f183c50141c0c3eebe744eacc26e3e03c9412d5db4906ef68f2068b3c21e7ab',
     'wine-mfreadwrite-shared-textures.patch': '6743b0dce57bbd50c98aec3c3a3090a987a81a4ba0bed295ea71c1197755577b',

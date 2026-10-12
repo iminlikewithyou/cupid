@@ -46,7 +46,7 @@ public enum LaunchEnvironment {
         }
     }
 
-    /// Inherited variables with these prefixes change Wine, Rosetta or renderer behaviour and
+    /// Inherited variables with these prefixes change Wine, Rosetta or renderer behavior and
     /// are removed. `D3DM_` (D3DMetal) is the spike's addition to PHASE2's list.
     public static let strippedPrefixes = ["CX_", "WINE", "DYLD_", "ROSETTA_", "MTL_", "DXMT_", "GST_", "D3DM_"]
 

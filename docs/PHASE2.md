@@ -249,7 +249,7 @@ reference implementation and may be re-implemented, not copied (PolyForm license
 - One window, states: Rosetta check, runtime install, prefix setup, TapTap install
   (instructions + "I've installed it"), game download (progress), ready. Then every open
   of the app launches the game and shows nothing unless something fails.
-- Menu (Cupid): About Cupid (versions, credits, Show Licences), Settings…, Play, Update Game,
+- Menu (Cupid): About Cupid (versions, credits, Show Licenses), Settings…, Play, Update Game,
   Reset Graphics…, Show Logs, Repair…, Uninstall….
 - Settings window: Fullscreen (three modes), Performance overlay (Metal HUD), Data folder.
   Persisted in `state.json`.
@@ -266,7 +266,7 @@ reference implementation and may be re-implemented, not copied (PolyForm license
 ## Order of work
 
 1. `CupidCore` + CLI with `setup` (runtime, prefix, seeds), `play`, `stop`, `status`.
-   Reuse the spike scripts as the behavioural spec; delete them when the CLI covers them.
+   Reuse the spike scripts as the behavioral spec; delete them when the CLI covers them.
 2. TapTap install and download states in the CLI.
 3. App shell over the CLI's core.
 4. Packaging script, ad hoc signed DMG.

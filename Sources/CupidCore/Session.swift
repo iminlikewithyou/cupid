@@ -227,7 +227,7 @@ public enum Session {
         }
         // Ask the server to quit, then make sure of it. `wineserver -k` has been seen to hang
         // for its whole timeout, with the server surviving, after TapTap's Electron processes
-        // were force-ended (2026-10-12, fresh run 3); so the server pid is signalled directly
+        // were force-ended (2026-10-12, fresh run 3); so the server pid is signaled directly
         // if it is still there, and the wait polls the process list instead of `wineserver -w`.
         let wine = Wine(paths: paths)
         var servers = SessionSnapshot.take(paths).wineservers.map(\.pid)
@@ -237,7 +237,7 @@ public enum Session {
             servers = servers.filter { kill($0, 0) == 0 }
             if !servers.isEmpty {
                 let killed = terminate(servers, grace: 2)
-                note("wineserver signalled directly (\(servers.count), \(killed) killed)")
+                note("wineserver signaled directly (\(servers.count), \(killed) killed)")
             }
             guard waitForExit(paths: paths, timeout: 15) else {
                 throw CupidError(.process, "The previous session did not end.")

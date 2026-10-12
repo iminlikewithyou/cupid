@@ -89,7 +89,7 @@ final class LoaderCacheSessionTests: XCTestCase {
         XCTAssertEqual(snap.launcher.map(\.pid), [running[1].processIdentifier])
         XCTAssertFalse(snap.isAlive, "no wineserver in this fake session")
 
-        // Without the loader cache directory they are invisible (the old behaviour).
+        // Without the loader cache directory they are invisible (the old behavior).
         XCTAssertTrue(SessionSnapshot.take(paths, loaderCacheDir: nil).processes.isEmpty)
 
         // `cupid status` reports them.
