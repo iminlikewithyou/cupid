@@ -11,6 +11,8 @@ public struct AppState: Codable, Sendable, Equatable {
     public var prefixRuntime: String?
     /// Metal HUD on for `play` (menu toggle).
     public var hud: Bool?
+    /// The game in its own fullscreen Space (WINEMAC_NATIVE_FULLSCREEN); off when absent.
+    public var nativeFullscreen: Bool?
     /// sha256 of the TapTap installer the user accepted when it no longer matched the pin.
     public var acceptedInstallerSHA256: String?
     public var taptapInstalled: Bool?

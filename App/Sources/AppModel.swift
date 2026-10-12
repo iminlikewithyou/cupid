@@ -47,6 +47,7 @@ final class AppModel: ObservableObject {
     /// The last informational result (repair summary, "TapTap is not installed yet", ...).
     @Published var notice: String?
     @Published private(set) var hud = false
+    @Published private(set) var nativeFullscreen = false
     /// Seconds left in the TapTap download, once the rate is known.
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
@@ -131,6 +132,7 @@ final class AppModel: ObservableObject {
         notice = preview.notice
         downloadETA = preview.eta
         hud = preview.report?.state.hud ?? false
+        nativeFullscreen = preview.report?.state.nativeFullscreen ?? false
         previewHasLogs = preview.hasLogs
         freeBytes = preview.freeBytes
         welcome = preview.welcome
@@ -204,6 +206,7 @@ final class AppModel: ObservableObject {
         // and Download with it (fresh run 3). The operation's completion refreshes.
         if activity == nil || phase == nil { phase = new.phase }
         hud = new.state.hud ?? false
+        nativeFullscreen = new.state.nativeFullscreen ?? false
         freeBytes = Self.availableBytes(near: paths.dataRoot)
         welcome = !welcomeDismissed && (phase?.needsWelcome(runtimeInstalled: new.runtime.installedVersion != nil,
                                                             welcomed: new.state.welcomed == true) ?? false)
@@ -554,9 +557,9 @@ final class AppModel: ObservableObject {
                 r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             }
-            let hud = AppState.load(paths).hud ?? false
+            let options = GameLauncher.Options(state: AppState.load(paths))
             r.line("Starting Heartopia")
-            let result = try GameLauncher(paths: paths).play(.init(hud: hud), waitForWindow: true, log: { r.line($0) })
+            let result = try GameLauncher(paths: paths).play(options, waitForWindow: true, log: { r.line($0) })
             return result.game?.pid
         } then: { pid in
             if let pid {
@@ -710,6 +713,16 @@ final class AppModel: ObservableObject {
         do {
             try AppState.update(paths) { $0.hud = on }
             hud = on
+        } catch {
+            failure = "Could not save the setting: \(Self.message(error))"
+        }
+    }
+
+    func setNativeFullscreen(_ on: Bool) {
+        if previewing { nativeFullscreen = on; return }
+        do {
+            try AppState.update(paths) { $0.nativeFullscreen = on }
+            nativeFullscreen = on
         } catch {
             failure = "Could not save the setting: \(Self.message(error))"
         }

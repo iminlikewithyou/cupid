@@ -11,7 +11,8 @@ Commands:
   setup [--step runtime|prefix|taptap|all]   Install what is missing (default: all)
         [--archive PATH] [--repair] [--no-wait] [--wait SECONDS] [--accept-new-installer]
   install-game [--no-wait] [--wait SECONDS]  Open TapTap and follow the game download
-  play [--hud|--no-hud] [--no-wait] [--dxmt-info] [--wine-debug SPEC] [--input-stats]
+  play [--hud|--no-hud] [--fullscreen-space|--no-fullscreen-space] [--no-wait] [--dxmt-info]
+       [--wine-debug SPEC] [--input-stats]
   stop [--yes]                               End every Wine process (wineserver -k)
   status [--json] [--verify]                 Report runtime, prefix, TapTap, game, session
   update                                     Open the TapTap launcher to update the game
@@ -25,7 +26,8 @@ The data folder is ~/Library/Application Support/Heartport (override: --data or 
 
 let valued: Set<String> = ["data", "step", "archive", "wait", "lines", "name", "wine-debug"]
 let allowedFlags: Set<String> = ["help", "json", "verify", "hud", "no-hud", "no-wait", "yes", "repair",
-                                 "accept-new-installer", "dxmt-info", "input-stats", "path"]
+                                 "accept-new-installer", "dxmt-info", "input-stats", "path",
+                                 "fullscreen-space", "no-fullscreen-space"]
 
 // MARK: output helpers
 
@@ -287,6 +289,8 @@ struct CLI {
         if args.has("dxmt-info") { options.dxmtInfoLog = true }
         options.wineDebug = args.options["wine-debug"]
         options.inputStats = args.has("input-stats")
+        options.nativeFullscreen = args.has("fullscreen-space") ? true : args.has("no-fullscreen-space") ? false
+            : (state.nativeFullscreen ?? false)
         if args.has("hud") || args.has("no-hud") { try AppState.update(paths) { $0.hud = options.hud } }
         let result = try GameLauncher(paths: paths).play(options, waitForWindow: !args.has("no-wait"), log: { say("  " + $0) })
         say("Started Heartopia (wine pid \(result.winePID)); log: \(result.log.path)")

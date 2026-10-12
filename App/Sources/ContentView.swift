@@ -802,6 +802,14 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Section {
+                Toggle("Fullscreen Space", isOn: Binding(get: { model.nativeFullscreen }, set: { model.setNativeFullscreen($0) }))
+            } footer: {
+                Text("Puts Heartopia in its own Space, so notifications, Mission Control, and app switching work as they do for Mac games. The strip beside the camera stays black. Takes effect the next time the game starts.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Section {
                 LabeledContent("Data folder") {
                     Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
                 }

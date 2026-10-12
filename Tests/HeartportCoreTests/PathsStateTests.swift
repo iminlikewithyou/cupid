@@ -132,6 +132,23 @@ final class SessionTests: XCTestCase {
         XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""welcomed" : true"#))
     }
 
+    func testNativeFullscreenSettingDefaultsOffAndDrivesTheLaunch() throws {
+        let root = try tempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let paths = Paths(dataRoot: root)
+        XCTAssertNil(AppState.load(paths).nativeFullscreen)
+        XCTAssertFalse(GameLauncher.Options(state: AppState.load(paths)).nativeFullscreen)
+        try AppState.update(paths) { $0.nativeFullscreen = true; $0.hud = true }
+        let state = AppState.load(paths)
+        XCTAssertEqual(state.nativeFullscreen, true)
+        XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""nativeFullscreen" : true"#))
+        let options = GameLauncher.Options(state: state)
+        XCTAssertTrue(options.nativeFullscreen)
+        XCTAssertTrue(options.hud)
+        try AppState.update(paths) { $0.nativeFullscreen = false }
+        XCTAssertFalse(GameLauncher.Options(state: AppState.load(paths)).nativeFullscreen)
+    }
+
     func testSetupCompleteShownRoundTripsAndDefaultsToAbsent() throws {
         let root = try tempDir()
         defer { try? FileManager.default.removeItem(at: root) }

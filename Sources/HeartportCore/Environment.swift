@@ -11,12 +11,17 @@ public enum LaunchEnvironment {
         public var wineDebug: String?
         /// `WINEMAC_INPUT_STATS` file prefix; the driver writes `<prefix>-<pid>.jsonl`.
         public var inputStatsPrefix: URL?
+        /// WINEMAC_NATIVE_FULLSCREEN: the game's fullscreen window gets its own fullscreen Space
+        /// (the "Fullscreen Space" setting, off by default).
+        public var nativeFullscreen: Bool
 
-        public init(hud: Bool = false, dxmtInfoLog: Bool = false, wineDebug: String? = nil, inputStatsPrefix: URL? = nil) {
+        public init(hud: Bool = false, dxmtInfoLog: Bool = false, wineDebug: String? = nil, inputStatsPrefix: URL? = nil,
+                    nativeFullscreen: Bool = false) {
             self.hud = hud
             self.dxmtInfoLog = dxmtInfoLog
             self.wineDebug = wineDebug
             self.inputStatsPrefix = inputStatsPrefix
+            self.nativeFullscreen = nativeFullscreen
         }
     }
 
@@ -70,11 +75,11 @@ public enum LaunchEnvironment {
             "WINE_GAME_MODE": Game.exeName,
             "WINE_NO_DOCK_ICON": Game.launcherExeName,
             // Heartport's Mac driver patches (heartport-20261012.4 on; ignored by older runtimes):
-            // the Dock shows "Heartopia" (and the icon below) instead of "xdt" and the exe's icon,
-            // and the game's fullscreen window gets its own fullscreen Space at the normal window
-            // level instead of floating above notifications and Mission Control.
+            // the Dock shows "Heartopia" (and the icon below) instead of "xdt" and the exe's icon.
+            // WINEMAC_NATIVE_FULLSCREEN (below, only with the setting on) gives the game's
+            // fullscreen window its own fullscreen Space at the normal window level instead of
+            // floating above notifications and Mission Control.
             "WINEMAC_APP_NAME": appName,
-            "WINEMAC_NATIVE_FULLSCREEN": Game.exeName,
             // GStreamer (winegstreamer's Media Foundation decoders): only the runtime's own
             // plugins, a registry in the data folder, and in-process plugin scanning (no
             // gst-plugin-scanner is shipped). GST_DEBUG stays unset (GST_ is stripped above).
@@ -99,6 +104,9 @@ public enum LaunchEnvironment {
             env["MTL_HUD_ENABLED"] = "1"
             env["MTL_HUD_DISABLE_MENU_BAR"] = "1"
             env["MTL_HUD_ELEMENTS"] = hudElements
+        }
+        if options.nativeFullscreen {
+            env["WINEMAC_NATIVE_FULLSCREEN"] = Game.exeName
         }
         if let stats = options.inputStatsPrefix {
             env["WINEMAC_INPUT_STATS"] = stats.path

@@ -32,7 +32,7 @@ final class EnvironmentTests: XCTestCase {
             "DXMT_LOG_LEVEL": "error", "DXMT_LOG_PATH": "none",
             "WINEMAC_MOUSELOOK": "xdt.exe", "WINE_GAME_MODE": "xdt.exe",
             "WINE_NO_DOCK_ICON": "TapTapGlobal.exe",
-            "WINEMAC_APP_NAME": "Heartopia", "WINEMAC_NATIVE_FULLSCREEN": "xdt.exe",
+            "WINEMAC_APP_NAME": "Heartopia",
             "GST_PLUGIN_SYSTEM_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_PLUGIN_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_REGISTRY_1_0": "\(data)/cache/gstreamer-registry.bin",
@@ -58,11 +58,13 @@ final class EnvironmentTests: XCTestCase {
         let env = LaunchEnvironment.build(paths: p)
         XCTAssertEqual(env["WINEMAC_APP_ICON"], icon.path)
         XCTAssertEqual(env["WINEMAC_APP_NAME"], "Heartopia")
-        XCTAssertEqual(env["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        XCTAssertNil(env["WINEMAC_NATIVE_FULLSCREEN"])
         // An inherited value never survives (WINE* is stripped), with or without the icon.
         let inherited = ["WINEMAC_APP_ICON": "/tmp/x.icns", "WINEMAC_APP_NAME": "x", "WINEMAC_NATIVE_FULLSCREEN": "other.exe"]
         XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_APP_ICON"], icon.path)
-        XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        XCTAssertNil(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"])
+        XCTAssertEqual(LaunchEnvironment.build(paths: p, options: .init(nativeFullscreen: true),
+                                               inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
         XCTAssertNil(LaunchEnvironment.build(paths: paths, inherited: inherited)["WINEMAC_APP_ICON"])
     }
 
