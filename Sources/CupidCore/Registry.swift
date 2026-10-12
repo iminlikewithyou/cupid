@@ -91,6 +91,12 @@ public struct RegistrySeed: Sendable, Equatable, Hashable {
         case dword(UInt32)
         case string(String)
     }
+    public enum Hive: String, Sendable, Equatable, Hashable {
+        /// HKCU, stored in user.reg.
+        case currentUser = "HKCU"
+        /// HKLM, stored in system.reg.
+        case localMachine = "HKLM"
+    }
     public enum Policy: Sendable, Equatable, Hashable {
         /// Applied only when the value is absent, so later in-game changes are kept.
         case whenAbsent
@@ -98,14 +104,15 @@ public struct RegistrySeed: Sendable, Equatable, Hashable {
         case enforce
     }
 
-    /// Key path relative to HKEY_CURRENT_USER.
+    public let hive: Hive
+    /// Key path relative to the hive.
     public let key: String
     public let name: String
     public let value: Value
     public let policy: Policy
 
-    public init(key: String, name: String, value: Value, policy: Policy) {
-        self.key = key; self.name = name; self.value = value; self.policy = policy
+    public init(hive: Hive = .currentUser, key: String, name: String, value: Value, policy: Policy) {
+        self.hive = hive; self.key = key; self.name = name; self.value = value; self.policy = policy
     }
 
     /// Arguments after `wine`: `reg.exe add "HKCU\..." /v NAME /t TYPE /d DATA /f`.
@@ -114,9 +121,10 @@ public struct RegistrySeed: Sendable, Equatable, Hashable {
         case .dword(let v): ("REG_DWORD", String(v))
         case .string(let s): ("REG_SZ", s)
         }
-        return ["reg.exe", "add", "HKCU\\" + key, "/v", name, "/t", type, "/d", data, "/f"]
+        return ["reg.exe", "add", hive.rawValue + "\\" + key, "/v", name, "/t", type, "/d", data, "/f"]
     }
 
+    /// `reg` is the file of the seed's hive (user.reg or system.reg).
     public func isSatisfied(by reg: RegFile?) -> Bool {
         guard let reg else { return false }
         switch (policy, value) {
@@ -130,6 +138,10 @@ public struct RegistrySeed: Sendable, Equatable, Hashable {
 public enum RegistrySeeds {
     public static let macDriverKey = #"Software\Wine\Mac Driver"#
     public static let gameKey = #"Software\xd\Heartopia"#
+    /// HKLM: the installed-fonts list (Windows NT); dwrite's system collection reads only this.
+    public static let fontsKey = #"Software\Microsoft\Windows NT\CurrentVersion\Fonts"#
+    /// HKCU: Wine's record of the macOS fonts it registered itself.
+    public static let wineExternalFontsKey = #"Software\Wine\Fonts\External Fonts"#
 
     /// Retina mode stays off for everything: the TapTap installer ignores clicks at Y, the
     /// launcher is sized wrong at Y, and the game's full-panel mode needs N.
@@ -154,7 +166,12 @@ public enum RegistrySeeds {
         ("Screenmanager Fullscreen mode_h3630240806", 1),   // fullscreen window
     ].map { RegistrySeed(key: gameKey, name: $0.0, value: .dword($0.1), policy: .whenAbsent) }
 
+    /// The HKCU seeds (what Reset graphics re-applies).
     public static var all: [RegistrySeed] { [retinaMode] + gamePrefs }
+
+    /// The HKLM font registrations, one per `WindowsFonts.all` link (applied by the prefix's
+    /// font step, see `WindowsFonts.unregistered`).
+    public static var fonts: [RegistrySeed] { WindowsFonts.all.map(\.registrySeed) }
 
     /// Seeds that still need `reg.exe add`. `force` (Reset graphics) re-applies every one.
     public static func pending(in reg: RegFile?, force: Bool = false) -> [RegistrySeed] {

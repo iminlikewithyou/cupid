@@ -31,6 +31,21 @@ final class RegistryTests: XCTestCase {
         XCTAssertFalse(RegistrySeeds.all.contains { $0.name.contains("Resolution") })
     }
 
+    func testHiveAndHKLMArguments() {
+        XCTAssertEqual(RegistrySeeds.retinaMode.hive, .currentUser)
+        let seed = RegistrySeed(hive: .localMachine, key: RegistrySeeds.fontsKey, name: "Arial (TrueType)", value: .string("Arial.ttf"), policy: .whenAbsent)
+        XCTAssertEqual(seed.regAddArguments,
+                       ["reg.exe", "add", #"HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts"#, "/v", "Arial (TrueType)", "/t", "REG_SZ", "/d", "Arial.ttf", "/f"])
+        XCTAssertEqual(PrefixSetup.Step.seed(seed).description, #"reg add HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts Arial (TrueType)"#)
+        // Read back from system.reg's escaped form.
+        let system = RegFile(text: #"""
+        [Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts] 1791832549
+        "Arial (TrueType)"="Arial.ttf"
+        """#)
+        XCTAssertTrue(seed.isSatisfied(by: system))
+        XCTAssertEqual(system.string(RegistrySeeds.fontsKey, "Arial (TrueType)"), "Arial.ttf")
+    }
+
     func testRegAddArguments() {
         XCTAssertEqual(RegistrySeeds.retinaMode.regAddArguments,
                        ["reg.exe", "add", #"HKCU\Software\Wine\Mac Driver"#, "/v", "RetinaMode", "/t", "REG_SZ", "/d", "N", "/f"])
@@ -118,7 +133,8 @@ final class RegistryTests: XCTestCase {
 
         try write(Self.userReg.replacingOccurrences(of: #""RetinaMode"="Y""#, with: #""RetinaMode"="N""#)
                   + "\n[Software\\\\xd\\\\Heartopia] 1\n\"UnityGraphicsQuality_h1669003810\"=dword:00000001\n", to: paths.userReg)
-        try write("[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion] 1\n\"CurrentBuild\"=\"19045\"\n\"ProductName\"=\"Microsoft Windows 10\"\n", to: paths.systemReg)
+        try write("[Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion] 1\n\"CurrentBuild\"=\"19045\"\n\"ProductName\"=\"Microsoft Windows 10\"\n"
+                  + WindowsFontsTests.registeredSystemReg(), to: paths.systemReg)
         try FileManager.default.createDirectory(at: paths.usersDir.appendingPathComponent("crossover/Documents"), withIntermediateDirectories: true)
         state.runtime = paths.runtimeVersion
         try WindowsFonts.create(in: paths.windowsFonts)

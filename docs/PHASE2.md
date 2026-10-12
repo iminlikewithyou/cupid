@@ -101,6 +101,7 @@ adopt an existing one rather than rebuild it.
 4. Replace any symlinks in `drive_c/users/*/` with empty directories (this Wine made none,
    keep the step).
 5. Link macOS's Arial files (`/System/Library/Fonts/Supplemental/Arial.ttf`, `Arial Bold`, `Arial Italic`, `Arial Bold Italic`, `Arial Unicode`) into `drive_c/windows/Fonts` when missing and present on the Mac (`WindowsFonts.all`); Unity's built-in Arial is found only there, and without it the XD SDK agreement dialog has no text. `status` lists missing ones.
+   The step also registers each link under HKLM `Software\Microsoft\Windows NT\CurrentVersion\Fonts` as `"<full face name> (TrueType)"="<file>"`, as a Windows installer would (`WindowsFonts.Link.registrySeed`), after deleting Wine's own `HKCU\Software\Wine\Fonts\External Fonts` record of that face: Wine registers only fonts outside `windows/Fonts` and drops the macOS copy's entry once the face is linked, and Wine's DirectWrite builds its system collection from that key alone, so without these values TapTap's Chromium lost Arial and Arial Unicode MS (missing-glyph boxes for "：" and CJK text). `status` lists unregistered ones.
 
 ## Launch contract (verified)
 

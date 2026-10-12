@@ -24,14 +24,17 @@ public struct PrefixSetup: Sendable {
         case seed(RegistrySeed)
         case replaceLinks([String])
         case fontLinks([String])
+        /// Registry value names (`WindowsFonts.Link.registryValue`) to add under HKLM.
+        case fontRegistry([String])
 
         public var description: String {
             switch self {
             case .wineboot(let reason): "wineboot.exe -u -r (\(reason))"
             case .winecfgWin10: "winecfg -v win10"
-            case .seed(let s): "reg add HKCU\\\(s.key) \(s.name)"
+            case .seed(let s): "reg add \(s.hive.rawValue)\\\(s.key) \(s.name)"
             case .replaceLinks(let l): "replace \(l.count) symlink(s) in drive_c/users"
             case .fontLinks(let f): "link \(f.count) macOS font(s) into windows/Fonts"
+            case .fontRegistry(let f): "register \(f.count) font(s) in HKLM\\\(RegistrySeeds.fontsKey)"
             }
         }
     }
@@ -70,7 +73,8 @@ public struct PrefixSetup: Sendable {
         } else if let booted = state.prefixRuntime ?? state.runtime, booted != paths.runtimeVersion {
             steps.append(.wineboot(reason: "runtime changed from \(booted)"))
         }
-        if !exists || !RegistrySeeds.isWindows10(RegFile(contentsOf: paths.systemReg)) {
+        let system = exists ? RegFile(contentsOf: paths.systemReg) : nil
+        if !exists || !RegistrySeeds.isWindows10(system) {
             steps.append(.winecfgWin10)
         }
         let user = exists ? RegFile(contentsOf: paths.userReg) : nil
@@ -79,6 +83,8 @@ public struct PrefixSetup: Sendable {
         if !links.isEmpty || !exists { steps.append(.replaceLinks(links)) }
         let fonts = WindowsFonts.pending(in: paths.windowsFonts)
         if !fonts.isEmpty { steps.append(.fontLinks(fonts.map(\.name))) }
+        let unregistered = WindowsFonts.unregistered(in: paths.windowsFonts, systemReg: system)
+        if !unregistered.isEmpty { steps.append(.fontRegistry(unregistered.map(\.registryValue))) }
         return steps
     }
 
@@ -113,6 +119,13 @@ public struct PrefixSetup: Sendable {
             case .fontLinks:
                 for link in try WindowsFonts.create(in: paths.windowsFonts) {
                     log("  windows/Fonts/\(link.name) -> \(link.source)")
+                }
+            case .fontRegistry(let values):
+                for link in WindowsFonts.all where values.contains(link.registryValue) {
+                    // Exits 1 when Wine has no such record; that is the usual case.
+                    _ = try wine.run(link.staleExternalDeleteArguments, log: wlog, timeout: 60)
+                    try check(try wine.run(link.registrySeed.regAddArguments, log: wlog, timeout: 60), "reg add \(link.registryValue)")
+                    log("  \(link.registryValue) = \(link.name)")
                 }
             }
         }

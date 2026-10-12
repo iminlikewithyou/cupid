@@ -22,6 +22,8 @@ public struct StatusReport: Codable, Sendable {
         public var userLinks: [String]
         /// WindowsFonts links not yet in windows/Fonts (sources present on this Mac).
         public var missingFonts: [String]
+        /// WindowsFonts registry values (HKLM ...\CurrentVersion\Fonts) not yet in system.reg.
+        public var unregisteredFonts: [String]
         public var dxmtConfCurrent: Bool
     }
     public struct TapTap: Codable, Sendable {
@@ -93,12 +95,14 @@ public struct StatusReport: Codable, Sendable {
         let setup = PrefixSetup(paths: paths)
         let exists = setup.exists
         let user = exists ? RegFile(contentsOf: paths.userReg) : nil
+        let system = exists ? RegFile(contentsOf: paths.systemReg) : nil
         let prefix = Prefix(exists: exists,
-                            windows10: exists && RegistrySeeds.isWindows10(RegFile(contentsOf: paths.systemReg)),
+                            windows10: exists && RegistrySeeds.isWindows10(system),
                             retinaMode: user?.string(RegistrySeeds.macDriverKey, "RetinaMode"),
                             pendingSeeds: RegistrySeeds.pending(in: user).map(\.name),
                             userLinks: exists ? setup.userLinks() : [],
                             missingFonts: exists ? WindowsFonts.pending(in: paths.windowsFonts).map(\.name) : [],
+                            unregisteredFonts: exists ? WindowsFonts.unregistered(in: paths.windowsFonts, systemReg: system).map(\.registryValue) : [],
                             dxmtConfCurrent: DxmtConfig.isCurrent(at: paths.dxmtConf))
 
         let installerFile = TapTapInstaller.file(paths)
