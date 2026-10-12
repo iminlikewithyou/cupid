@@ -65,6 +65,13 @@ public enum LaunchEnvironment {
             "WINEMAC_MOUSELOOK": Game.exeName,
             "WINE_GAME_MODE": Game.exeName,
             "WINE_NO_DOCK_ICON": Game.launcherExeName,
+            // GStreamer (winegstreamer's Media Foundation decoders): only the runtime's own
+            // plugins, a registry in the data folder, and in-process plugin scanning (no
+            // gst-plugin-scanner is shipped). GST_DEBUG stays unset (GST_ is stripped above).
+            "GST_PLUGIN_SYSTEM_PATH_1_0": paths.gstreamerPlugins.path,
+            "GST_PLUGIN_PATH_1_0": paths.gstreamerPlugins.path,
+            "GST_REGISTRY_1_0": paths.gstreamerRegistry.path,
+            "GST_REGISTRY_FORK": "no",
             "HOME": paths.home.path,
             "USER": "player",
             "TMPDIR": paths.tmp.path,

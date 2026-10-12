@@ -86,6 +86,10 @@ public struct Paths: Sendable, Equatable {
     public var systemReg: URL { prefix.appendingPathComponent("system.reg") }
     public var shaderCache: URL { dataRoot.appendingPathComponent("cache/shaders", isDirectory: true) }
     public var pipelineCache: URL { dataRoot.appendingPathComponent("cache/pipelines", isDirectory: true) }
+    /// GStreamer plugins of a runtime that ships them (Heartport builds from heartport-20261012.3).
+    public var gstreamerPlugins: URL { runtime.appendingPathComponent("lib/gstreamer-1.0", isDirectory: true) }
+    /// GStreamer's plugin registry (rebuilt by GStreamer when the plugins change).
+    public var gstreamerRegistry: URL { dataRoot.appendingPathComponent("cache/gstreamer-registry.bin") }
     public var home: URL { dataRoot.appendingPathComponent("home", isDirectory: true) }
     public var tmp: URL { dataRoot.appendingPathComponent("tmp", isDirectory: true) }
     public var logs: URL { dataRoot.appendingPathComponent("logs", isDirectory: true) }

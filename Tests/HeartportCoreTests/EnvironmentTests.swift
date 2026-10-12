@@ -32,6 +32,10 @@ final class EnvironmentTests: XCTestCase {
             "DXMT_LOG_LEVEL": "error", "DXMT_LOG_PATH": "none",
             "WINEMAC_MOUSELOOK": "xdt.exe", "WINE_GAME_MODE": "xdt.exe",
             "WINE_NO_DOCK_ICON": "TapTapGlobal.exe",
+            "GST_PLUGIN_SYSTEM_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
+            "GST_PLUGIN_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
+            "GST_REGISTRY_1_0": "\(data)/cache/gstreamer-registry.bin",
+            "GST_REGISTRY_FORK": "no",
             "HOME": "\(data)/home", "USER": "player", "TMPDIR": "\(data)/tmp",
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         ]
@@ -59,6 +63,21 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(env["TMPDIR"], "\(data)/tmp")
         XCTAssertEqual(env["PATH"], "/usr/bin:/bin:/usr/sbin:/sbin")
         XCTAssertFalse(env.values.contains { $0.contains("/.wine") })
+    }
+
+    func testGStreamerUsesOnlyTheRuntimePlugins() {
+        let inherited = ["GST_DEBUG": "*:6", "GST_PLUGIN_PATH_1_0": "/opt/homebrew/lib/gstreamer-1.0",
+                         "GST_PLUGIN_SCANNER_1_0": "/opt/homebrew/libexec/gst-plugin-scanner", "GST_REGISTRY": "/tmp/r.bin"]
+        let env = LaunchEnvironment.build(paths: paths, inherited: inherited)
+        XCTAssertNil(env["GST_DEBUG"])
+        XCTAssertNil(env["GST_PLUGIN_SCANNER_1_0"])
+        XCTAssertNil(env["GST_REGISTRY"])
+        XCTAssertEqual(env["GST_PLUGIN_PATH_1_0"], "\(rt)/lib/gstreamer-1.0")
+        XCTAssertEqual(env["GST_PLUGIN_SYSTEM_PATH_1_0"], paths.gstreamerPlugins.path)
+        XCTAssertEqual(env["GST_REGISTRY_1_0"], paths.gstreamerRegistry.path)
+        XCTAssertEqual(env["GST_REGISTRY_FORK"], "no")
+        // Wine's Media Foundation decoders live in winegstreamer: never disabled.
+        XCTAssertFalse(env["WINEDLLOVERRIDES"]!.contains("winegstreamer"))
     }
 
     func testOptions() {
