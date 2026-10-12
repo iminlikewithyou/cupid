@@ -61,7 +61,8 @@ public struct SetupInputs: Sendable, Equatable {
     /// Runtime version wineboot last ran with (`state.prefixRuntime ?? state.runtime`).
     public var prefixBootedWith: String?
     public var launcherInstalled = false
-    public var installerRunning = false
+    /// StatusReport.SessionStatus.installerSession.
+    public var installerSession = false
     public var launcherRunning = false
     public var sessionAlive = false
     public var gamePID: Int32?
@@ -85,7 +86,7 @@ public struct SetupInputs: Sendable, Equatable {
         userLinks = r.prefix.userLinks
         prefixBootedWith = r.state.prefixRuntime ?? r.state.runtime
         launcherInstalled = r.taptap.launcherInstalled
-        installerRunning = r.session.installerRunning
+        installerSession = r.session.installerSession
         launcherRunning = r.session.launcherRunning
         sessionAlive = r.session.alive
         gamePID = r.session.game?.pid
@@ -116,7 +117,11 @@ public struct SetupInputs: Sendable, Equatable {
             if sessionAlive { return .ready(.sessionBusy) }
             return .ready(.idle)
         }
-        guard launcherInstalled else { return .taptap(installerRunning: installerRunning) }
+        // TapTapGlobal.exe is on disk before the installer finishes ("Installation complete" and
+        // Launch come after it): stay on the TapTap step while the installer is at work, until
+        // TapTap itself opens (then the restart with Heartport's settings takes over).
+        let installerAtWork = installerSession && !launcherRunning && gameState == "not-started"
+        guard launcherInstalled, !installerAtWork else { return .taptap(installerRunning: installerSession) }
         var d = SetupPhase.Download(launcherRunning: launcherRunning, bytesOnDisk: bytesOnDisk, totalBytes: totalBytes,
                                     incomplete: gameState == "incomplete")
         if let have = bytesOnDisk, let total = totalBytes, total > 0 {

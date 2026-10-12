@@ -16,6 +16,9 @@ public struct AppState: Codable, Sendable, Equatable {
     public var taptapInstalled: Bool?
     public var gameInstalled: Bool?
     public var lastLaunch: String?
+    /// When Heartport last started the TapTap installer (ISO 8601): its stages run as separate
+    /// processes with gaps between them, so a session in the first minute counts as the installer.
+    public var installerStarted: String?
     /// The app's welcome screen was dismissed ("Get Started") for this data folder.
     public var welcomed: Bool?
     /// The app's one-time "Heartopia is ready" screen was shown and left (Play) for this data folder.

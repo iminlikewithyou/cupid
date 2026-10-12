@@ -49,6 +49,10 @@ public struct StatusReport: Codable, Sendable {
         public var window: WindowInfo?
         public var launcherRunning: Bool
         public var installerRunning: Bool
+        /// The TapTap installer is (still) at work: an installer process or another non-service
+        /// Windows program is alive, or a session is alive within a minute of Heartport starting
+        /// the installer (its stages are separate processes with gaps in between).
+        public var installerSession: Bool
         public var programs: [String]
     }
 
@@ -110,18 +114,25 @@ public struct StatusReport: Codable, Sendable {
         case .installed(let c): game.state = "installed"; fill(c)
         }
 
-        let session = Self.session(from: SessionSnapshot.take(paths))
+        let state = AppState.load(paths)
+        let session = Self.session(from: SessionSnapshot.take(paths),
+                                   installerStarted: state.installerStarted.flatMap { ISO8601DateFormatter().date(from: $0) })
 
         return StatusReport(dataRoot: paths.dataRoot.path, rosetta: Rosetta.isInstalled, runtime: runtime, prefix: prefix,
-                            taptap: taptap, game: game, session: session, state: AppState.load(paths))
+                            taptap: taptap, game: game, session: session, state: state)
     }
 
-    public static func session(from snap: SessionSnapshot) -> SessionStatus {
+    /// Seconds after Heartport starts the installer during which any live session counts as it.
+    public static let installerGrace: TimeInterval = 60
+
+    public static func session(from snap: SessionSnapshot, installerStarted: Date? = nil, now: Date = Date()) -> SessionStatus {
         let g = snap.game
+        let recent = installerStarted.map { now.timeIntervalSince($0) < installerGrace && now >= $0 } ?? false
+        let installerSession = !snap.installer.isEmpty || !snap.otherPrograms.isEmpty || (snap.isAlive && recent)
         return SessionStatus(alive: snap.isAlive, wineserverPIDs: snap.wineservers.map(\.pid), game: g,
                              gameInModeBundle: g?.path.contains("/" + GameModeBundle.relativePath + "/") == true,
                              window: g.flatMap { WindowInfo.game(pid: $0.pid) },
                              launcherRunning: !snap.launcher.isEmpty, installerRunning: !snap.installer.isEmpty,
-                             programs: snap.windowsPrograms.map { "\($0.pid) \($0.argv0 ?? "?")" })
+                             installerSession: installerSession, programs: snap.windowsPrograms.map { "\($0.pid) \($0.argv0 ?? "?")" })
     }
 }

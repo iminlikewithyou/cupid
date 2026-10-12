@@ -24,9 +24,12 @@ public struct SessionSnapshot: Sendable {
     public let processes: [WineProcess]
     public let runtimesDir: String
     public let wineserverPath: String
+    /// Unix directories an installer runs from (`<data>/downloads`, `<data>/tmp`), canonical.
+    public let installerDirs: [String]
 
-    public init(processes: [WineProcess], runtimesDir: String, wineserverPath: String) {
+    public init(processes: [WineProcess], runtimesDir: String, wineserverPath: String, installerDirs: [String] = []) {
         self.processes = processes; self.runtimesDir = runtimesDir; self.wineserverPath = wineserverPath
+        self.installerDirs = installerDirs
     }
 
     /// Every process whose binary is inside `<data>/runtime/` (any version: they share the
@@ -53,7 +56,8 @@ public struct SessionSnapshot: Sendable {
             guard let path = LiveProcesses.path(pid), isOurs(path) else { return nil }
             return WineProcess(pid: pid, path: path, argv0: LiveProcesses.argv0(pid))
         }
-        return SessionSnapshot(processes: entries, runtimesDir: dir, wineserverPath: LiveProcesses.canonical(paths.wineserver.path))
+        return SessionSnapshot(processes: entries, runtimesDir: dir, wineserverPath: LiveProcesses.canonical(paths.wineserver.path),
+                               installerDirs: [paths.downloads, paths.tmp].map { LiveProcesses.canonical($0.path) })
     }
 
     /// wineserver processes of any of our runtimes (the session is alive while one runs).
@@ -68,9 +72,37 @@ public struct SessionSnapshot: Sendable {
     }
     public var game: WineProcess? { running(Game.exeName).first }
     public var launcher: [WineProcess] { running(Game.launcherExeName) }
+    /// The TapTap installer. It runs as several processes in turn (language choice, install,
+    /// "Installation complete"): the downloaded exe, or any program started from the
+    /// downloads folder, Heartport's Unix temp folder, or the Windows temp folder.
     public var installer: [WineProcess] {
-        processes.filter { $0.programName?.hasPrefix("taptap_global_pc_setup") == true }
+        processes.filter { p in
+            guard let name = p.programName, name.hasSuffix(".exe"), !isWineOrGame(p) else { return false }
+            if name.hasPrefix("taptap_global_pc_setup") { return true }
+            let argv0 = (p.argv0 ?? "").replacingOccurrences(of: "\\", with: "/").lowercased()
+            if argv0.contains("/appdata/local/temp/") || argv0.contains("/windows/temp/") { return true }
+            return installerDirs.contains { argv0.hasPrefix($0.lowercased() + "/") }
+        }
     }
+
+    /// Wine's own background programs: never a sign that something the user started is open.
+    public static let servicePrograms: Set<String> = [
+        "services.exe", "rpcss.exe", "winemenubuilder.exe", "explorer.exe", "plugplay.exe",
+        "svchost.exe", "conhost.exe", "winedevice.exe", "wineboot.exe", "start.exe",
+    ]
+
+    /// wineserver, the bare loader, Wine's services, the game, its crash handler, or TapTap.
+    func isWineOrGame(_ p: WineProcess) -> Bool {
+        if p.path == wineserverPath || p.path.hasSuffix("/bin/wineserver") { return true }
+        guard let name = p.programName else { return true }
+        if !name.hasSuffix(".exe") { return true } // the wine loader or preloader itself
+        return Self.servicePrograms.contains(name) || name == Game.exeName
+            || name == "unitycrashhandler64.exe" || name == Game.launcherExeName.lowercased()
+    }
+
+    /// Windows programs other than Wine's services, the game, and TapTap (an installer stage,
+    /// a redistributable, ...).
+    public var otherPrograms: [WineProcess] { processes.filter { !isWineOrGame($0) } }
     /// Windows programs (argv[0] looks like `C:\...`), for display.
     public var windowsPrograms: [WineProcess] {
         processes.filter { ($0.argv0 ?? "").range(of: #"^[A-Za-z]:\\"#, options: .regularExpression) != nil }

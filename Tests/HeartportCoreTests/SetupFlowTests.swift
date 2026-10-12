@@ -59,9 +59,9 @@ final class SetupFlowTests: XCTestCase {
         i.launcherInstalled = false
         i.gameState = "not-started"
         XCTAssertEqual(i.phase, .taptap(installerRunning: false))
-        i.installerRunning = true; i.sessionAlive = true
+        i.installerSession = true; i.sessionAlive = true
         XCTAssertEqual(i.phase, .taptap(installerRunning: true))
-        i.installerRunning = false
+        i.installerSession = false
         i.launcherInstalled = true; i.launcherRunning = true
         XCTAssertEqual(i.phase, .download(.init(launcherRunning: true)))
         i.gameState = "downloading"; i.bytesOnDisk = 250; i.totalBytes = 1000
@@ -79,6 +79,61 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertEqual(i.phase, .ready(.sessionBusy))
         i.sessionAlive = false
         XCTAssertEqual(i.phase, .ready(.idle))
+    }
+
+    /// TapTapGlobal.exe is on disk before the installer finishes: the TapTap step stays while the
+    /// installer is at work, and ends when its session is gone or TapTap itself opens.
+    func testInstallerKeepsTheTapTapStepUntilItIsDone() {
+        var i = readyInputs()
+        i.gameState = "not-started"
+        i.launcherInstalled = true
+        i.installerSession = true; i.sessionAlive = true
+        XCTAssertEqual(i.phase, .taptap(installerRunning: true))
+        // The installer's Launch opened TapTap: on to the download (the app restarts it).
+        i.launcherRunning = true
+        XCTAssertEqual(i.phase, .download(.init(launcherRunning: true)))
+        // The installer closed without Launch.
+        i.launcherRunning = false; i.installerSession = false; i.sessionAlive = false
+        XCTAssertEqual(i.phase, .download(.init(launcherRunning: false)))
+        // Once the download has started, a stray program never sends it back.
+        i.installerSession = true; i.sessionAlive = true; i.gameState = "downloading"
+        guard case .download = i.phase else { return XCTFail("\(i.phase)") }
+    }
+
+    func testInstallerSessionFromSnapshot() {
+        let rt = "/d/runtime/v"
+        func snap(_ programs: [(Int32, String)], wineserver: Bool = true) -> SessionSnapshot {
+            var p = programs.map { WineProcess(pid: $0.0, path: "/T/winetemp-1/x", argv0: $0.1) }
+            if wineserver { p.append(.init(pid: 1, path: "\(rt)/bin/wineserver", argv0: "wineserver")) }
+            p.append(.init(pid: 2, path: "/T/winetemp-1/services.exe", argv0: #"C:\windows\system32\services.exe"#))
+            return SessionSnapshot(processes: p, runtimesDir: "/d/runtime", wineserverPath: "\(rt)/bin/wineserver",
+                                   installerDirs: ["/d/downloads", "/d/tmp"])
+        }
+        let now = Date()
+        // Only Wine's services and the wineserver: not the installer, unless it started < 60 s ago.
+        let idle = snap([(3, #"C:\windows\system32\explorer.exe"#), (4, #"C:\windows\system32\winedevice.exe"#)])
+        XCTAssertTrue(idle.installer.isEmpty)
+        XCTAssertTrue(idle.otherPrograms.isEmpty)
+        XCTAssertFalse(StatusReport.session(from: idle).installerSession)
+        XCTAssertTrue(StatusReport.session(from: idle, installerStarted: now.addingTimeInterval(-20), now: now).installerSession)
+        XCTAssertFalse(StatusReport.session(from: idle, installerStarted: now.addingTimeInterval(-90), now: now).installerSession)
+        XCTAssertFalse(StatusReport.session(from: snap([], wineserver: false), installerStarted: now, now: now).installerSession,
+                       "no session, no installer")
+        // Installer stages: the downloaded exe, a copy in the Windows temp folder, a program in downloads/.
+        for argv0 in ["/d/downloads/TapTap_Global_PC_Setup_0.3.0.1000_coop-pc-id231364-.exe",
+                      #"C:\users\crossover\AppData\Local\Temp\nsr34fd.tmp\Setup.exe"#,
+                      "/d/downloads/stage2.exe"] {
+            let s = snap([(5, argv0)])
+            XCTAssertEqual(s.installer.map(\.pid), [5], argv0)
+            XCTAssertTrue(StatusReport.session(from: s).installerSession)
+        }
+        // Any other non-service program counts too; TapTap, the game, and its crash handler do not.
+        XCTAssertTrue(StatusReport.session(from: snap([(6, #"C:\Program Files\Other\vc_redist.x64.exe"#)])).installerSession)
+        let launcher = snap([(7, #"C:\Program Files\TapTapGlobal\TapTapGlobal.exe"#),
+                             (8, #"C:\TapTapGlobal\Apps\231364\UnityCrashHandler64.exe"#)])
+        XCTAssertTrue(launcher.otherPrograms.isEmpty)
+        XCTAssertTrue(launcher.installer.isEmpty)
+        XCTAssertFalse(StatusReport.session(from: launcher).installerSession)
     }
 
     func testRunningGameWinsOverMaintenance() {

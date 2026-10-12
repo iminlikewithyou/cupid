@@ -355,6 +355,8 @@ private struct CardAction {
     /// Return triggers it (off for actions that should not fire by accident).
     var isDefault = true
     var help: String?
+    /// False keeps it visible but not pressable (besides while an operation runs).
+    var enabled = true
     var action: () -> Void
 }
 
@@ -477,6 +479,8 @@ private struct StepCard: View {
                 NumberedStep(4, "play.circle", "When it says Installation complete, press Launch.")
                 if installerRunning {
                     StatusRow(ok: true, "The installer is open in its own window.")
+                } else if model.report?.session.alive == true {
+                    DetailRow("hourglass", "Heartport is finishing the previous step.")
                 } else {
                     DetailRow("macwindow", "TapTap's installer opens in a separate window, \u{201C}Welcome to TapTap Setup\u{201D}.")
                 }
@@ -550,7 +554,7 @@ private struct StepCard: View {
                     }
                 }
                 .controlSize(primary.large ? .extraLarge : .large)
-                .disabled(model.busy)
+                .disabled(model.busy || !primary.enabled)
                 .help(primary.help ?? "")
                 .focused($focus, equals: .primary)
                 if primary.isDefault {
@@ -576,7 +580,7 @@ private struct StepCard: View {
         case .taptap(let installerRunning)?:
             return installerRunning
                 ? CardAction(title: "I've Installed It") { model.recheckTapTap() }
-                : CardAction(title: "Launch Installer") { model.launchInstaller() }
+                : CardAction(title: "Launch Installer", enabled: model.report?.session.alive != true) { model.launchInstaller() }
         case .download(let d)?:
             return d.launcherRunning
                 ? CardAction(title: "Restart TapTap", isDefault: false,

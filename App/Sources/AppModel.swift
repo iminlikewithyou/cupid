@@ -370,6 +370,13 @@ final class AppModel: ObservableObject {
                 _ = Operations.bringToFront(paths, timeout: 2) { $0.installer }
                 return nil
             }
+            if snapshot.isAlive {
+                // Between the installer's stages, or a session winding down.
+                r.line("Waiting for the previous step to finish")
+                if !Session.waitForExit(paths: paths, timeout: 15) {
+                    Logs.append(paths, "app: session still alive after 15 s; not starting the installer")
+                }
+            }
             try SessionGuard.requireIdle(paths, to: "start the TapTap installer")
             r.line("Downloading the TapTap Global installer")
             return try TapTapInstaller.download(paths, progress: Operations.byteProgress(r, "TapTap installer"))
