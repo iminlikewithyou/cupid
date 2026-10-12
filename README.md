@@ -1,7 +1,17 @@
+<p align="center"><img src="docs/images/icon.png" width="160" alt="Cupid's icon: a white heart on a pink rounded square"></p>
+
 # Cupid
 
-Cupid plays **Heartopia** on your Mac. It installs the game for you and starts it when you
+Cupid is a simple **Heartopia** launcher for Mac. It guides you through installing the game natively for you, and launches it when you
 open Cupid. It's that simple.
+
+<p align="center"><img src="docs/images/cupid.png" width="632" alt="Cupid's welcome screen on first open"></p>
+
+## Requirements
+
+- A Mac with Apple silicon (M1 or later)
+- macOS 26 or later
+- About 17 GB of free space, most of it for Heartopia itself
 
 ## Download
 
@@ -14,15 +24,12 @@ open Cupid. It's that simple.
    then on.
 5. Follow the steps in Cupid's window.
 
-You need a Mac with Apple silicon (M1 or later) running macOS 26 or later, Rosetta 2 (Cupid
-helps you install it if it is missing), and about 17 GB of free space.
-
 ## Settings
 
-Three fullscreen modes: fill the screen with notifications showing (the default), fill the
-screen with notifications hidden, or an own Space like a Mac game. There is also a
-performance overlay. Hold Option while opening Cupid to see its window instead of starting
-the game.
+- Three fullscreen modes: fill the screen with notifications showing (the default), fill the
+  screen with notifications hidden, or an own Space like a Mac game.
+- A performance overlay.
+- Opening Cupid while holding Option opens to the Cupid launcher instead of starting the game.
 
 ## How it works
 
