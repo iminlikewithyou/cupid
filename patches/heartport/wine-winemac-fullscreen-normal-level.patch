@@ -1,0 +1,222 @@
+diff --git a/dlls/winemac.drv/cocoa_app.h b/dlls/winemac.drv/cocoa_app.h
+index 4da4676..8e1f360 100644
+--- a/dlls/winemac.drv/cocoa_app.h
++++ b/dlls/winemac.drv/cocoa_app.h
+@@ -167,6 +167,9 @@ - (void) didSendEvent:(NSEvent*)anEvent;
+     // CrossOver Hack 10912: Mac Edit menu
+     - (BOOL) isEditMenuAction:(SEL)selector;
+ 
++    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
++    - (void) updateFullscreenPresentation;
++
+ @end
+ 
+ 
+diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
+index 53420fe..ad2cfeb 100644
+--- a/dlls/winemac.drv/cocoa_app.m
++++ b/dlls/winemac.drv/cocoa_app.m
+@@ -3277,6 +3277,8 @@ - (void)applicationDidBecomeActive:(NSNotification *)notification
+ 
+         [self updateFullscreenWindows];
+         [self adjustWindowLevels:YES];
++        if (fullscreen_normal_level_allowed)
++            [self updateFullscreenPresentation];
+ 
+         /* Heartport: a native-fullscreen window enters its Space only while
+            the application is active (WINEMAC_NATIVE_FULLSCREEN). */
+@@ -3335,6 +3337,43 @@ - (void)applicationDidChangeScreenParameters:(NSNotification *)notification
+         forceNextMouseMoveAbsolute = TRUE;
+     }
+ 
++    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  While the key window is a
++       normal-level fullscreen window (-[WineWindow fullscreenNormalLevel]) and the
++       application is active, the menu bar and Dock auto-hide; otherwise the
++       presentation options the application had before come back. */
++    - (void) updateFullscreenPresentation
++    {
++        static BOOL applied;
++        static NSApplicationPresentationOptions saved;
++        NSWindow* key = [NSApp keyWindow];
++        BOOL want = [NSApp isActive] && [key isKindOfClass:[WineWindow class]] && [key isVisible] &&
++                    ![key isMiniaturized] && [(WineWindow*)key fullscreenNormalLevel];
++
++        /* setPresentationOptions: can re-enter this method (it activates and orders
++           windows); the state is updated before the call. */
++        if (want && !applied)
++        {
++            saved = [NSApp presentationOptions];
++            applied = TRUE;
++            @try
++            {
++                [NSApp setPresentationOptions:saved | NSApplicationPresentationAutoHideMenuBar |
++                                              NSApplicationPresentationAutoHideDock];
++            }
++            @catch (NSException* e)
++            {
++                applied = FALSE;
++                NSLog(@"winemac: could not hide the menu bar and Dock: %@", [e reason]);
++            }
++        }
++        else if (!want && applied)
++        {
++            applied = FALSE;
++            @try { [NSApp setPresentationOptions:saved]; }
++            @catch (NSException* e) { NSLog(@"winemac: could not restore the presentation options: %@", [e reason]); }
++        }
++    }
++
+     - (void)applicationDidResignActive:(NSNotification *)notification
+     {
+         macdrv_event* event;
+@@ -3360,6 +3399,8 @@ - (void)applicationDidResignActive:(NSNotification *)notification
+         }
+ 
+         [self releaseMouseCapture];
++        if (fullscreen_normal_level_allowed)
++            [self updateFullscreenPresentation];
+     }
+ 
+     - (void) applicationDidUnhide:(NSNotification*)aNotification
+diff --git a/dlls/winemac.drv/cocoa_window.h b/dlls/winemac.drv/cocoa_window.h
+index 9025da8..f5f3abb 100644
+--- a/dlls/winemac.drv/cocoa_window.h
++++ b/dlls/winemac.drv/cocoa_window.h
+@@ -130,4 +130,7 @@ - (void) setRetinaMode:(BOOL)mode;
+     /* Heartport: WINEMAC_NATIVE_FULLSCREEN. */
+     - (void) scheduleNativeFullscreenCheck;
+ 
++    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
++    - (BOOL) fullscreenNormalLevel;
++
+ @end
+diff --git a/dlls/winemac.drv/cocoa_window.m b/dlls/winemac.drv/cocoa_window.m
+index 9208e4b..eebf8d4 100644
+--- a/dlls/winemac.drv/cocoa_window.m
++++ b/dlls/winemac.drv/cocoa_window.m
+@@ -1272,7 +1272,10 @@ - (NSInteger) minimumLevelForActive:(BOOL)active
+             /* Heartport: a native-fullscreen window stays at the normal level;
+                its Space keeps it in front.  One that the player took out of
+                its Space, or that refused the Space's frame, floats as before. */
+-            if (captured || (fullscreen && (![self nativeFullscreenCandidate] || nativeFullscreenDeclined)))
++            /* Heartport: so does a WINEMAC_FULLSCREEN_NORMAL_LEVEL window; the
++               menu bar and Dock auto-hide while it is key instead. */
++            if (captured || (fullscreen && (![self nativeFullscreenCandidate] || nativeFullscreenDeclined) &&
++                             ![self fullscreenNormalLevel]))
+             {
+                 if (captured)
+                     level = CGShieldingWindowLevel() + 1; /* Need +1 or we don't get mouse moves */
+@@ -1967,6 +1970,8 @@ - (void) updateFullscreen
+         }
+ 
+         [self scheduleNativeFullscreenCheck];
++        if (fullscreen_normal_level_allowed)
++            [[WineApplicationController sharedController] updateFullscreenPresentation];
+     }
+ 
+     /* Heartport: WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen
+@@ -1988,6 +1993,17 @@ - (BOOL) nativeFullscreenCandidate
+                !self.parentWindow && !self.latentParentWindow && !macdrv_v1_canvas_requested(self);
+     }
+ 
++    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  A listed program's fullscreen
++       window (borderless, covering a screen) keeps the normal window level while
++       the application is active, so notification banners draw over it, and the
++       application auto-hides the menu bar and Dock while it is key (see
++       -[WineApplicationController updateFullscreenPresentation]).  No Space. */
++    - (BOOL) fullscreenNormalLevel
++    {
++        return fullscreen_normal_level_allowed && fullscreen && !([self styleMask] & NSWindowStyleMaskTitled) &&
++               !self.parentWindow && !self.latentParentWindow && !macdrv_v1_canvas_requested(self);
++    }
++
+     - (void) scheduleNativeFullscreenCheck
+     {
+         if (!native_fullscreen_allowed || nativeFullscreenScheduled) return;
+@@ -3248,6 +3264,8 @@ - (void)windowDidBecomeKey:(NSNotification *)notification
+ 
+         [controller windowGotFocus:self];
+         macdrv_v1_canvas_focus(self, TRUE);
++        if (fullscreen_normal_level_allowed)
++            [controller updateFullscreenPresentation];
+     }
+ 
+     - (void) windowDidChangeOcclusionState:(NSNotification*)notification
+@@ -3389,6 +3407,11 @@ - (void)windowDidResignKey:(NSNotification *)notification
+     {
+         macdrv_event* event;
+ 
++        if (fullscreen_normal_level_allowed)
++            dispatch_async(dispatch_get_main_queue(), ^{
++                [[WineApplicationController sharedController] updateFullscreenPresentation];
++            });
++
+         if (causing_becomeKeyWindow) return;
+         if ([[WineApplicationController sharedController] temporarilyIgnoreResignEventsForDialog]) return;
+ 
+diff --git a/dlls/winemac.drv/macdrv_cocoa.h b/dlls/winemac.drv/macdrv_cocoa.h
+index 1009c5b..8237a18 100644
+--- a/dlls/winemac.drv/macdrv_cocoa.h
++++ b/dlls/winemac.drv/macdrv_cocoa.h
+@@ -150,6 +150,7 @@
+ extern bool mouselook_allowed;  /* This process may use mouselook (WINEMAC_MOUSELOOK lists its exe). */
+ extern char mouselook_process[64];
+ extern bool native_fullscreen_allowed;  /* Heartport: WINEMAC_NATIVE_FULLSCREEN lists this process's exe. */
++extern bool fullscreen_normal_level_allowed;  /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL lists it. */
+ /* Heartport: the Dock identity from the environment, read by setup_options.
+    app_display_name (WINEMAC_APP_NAME) is set only when LaunchServices offers
+    the private call that renames a running application. */
+diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
+index 8982abd..fa85f0a 100644
+--- a/dlls/winemac.drv/macdrv_main.c
++++ b/dlls/winemac.drv/macdrv_main.c
+@@ -62,6 +62,7 @@ bool use_precise_scrolling = true;
+ bool mouselook_allowed = false;
+ char mouselook_process[64];
+ bool native_fullscreen_allowed = false;
++bool fullscreen_normal_level_allowed = false;
+ CFStringRef app_display_name = NULL;
+ int (*app_set_information_item)(int, CFTypeRef, CFStringRef, CFTypeRef, CFDictionaryRef *) = NULL;
+ CFTypeRef (*app_current_asn)(void) = NULL;
+@@ -349,6 +350,33 @@ static void setup_native_fullscreen(void)
+     }
+ }
+ 
++/***********************************************************************
++ *              setup_fullscreen_normal_level
++ *
++ * Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL, a list like
++ * WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen windows stay at
++ * the normal window level, with the menu bar and Dock hidden while one is
++ * key, instead of floating at NSStatusWindowLevel + 1 (cocoa_window.m).
++ * WINEMAC_NATIVE_FULLSCREEN wins when both list the program.
++ */
++static void setup_fullscreen_normal_level(void)
++{
++    const char *list = getenv("WINEMAC_FULLSCREEN_NORMAL_LEVEL");
++
++    while (list && *list && !native_fullscreen_allowed)
++    {
++        const char *end = strchr(list, ';');
++        size_t len = end ? (size_t)(end - list) : strlen(list);
++        if (len && len == strlen(mouselook_process) && !strncasecmp(list, mouselook_process, len))
++        {
++            fullscreen_normal_level_allowed = true;
++            TRACE("normal-level fullscreen for %s\n", debugstr_a(mouselook_process));
++            break;
++        }
++        list = end ? end + 1 : NULL;
++    }
++}
++
+ 
+ /***********************************************************************
+  *              setup_app_identity
+@@ -412,6 +440,7 @@ static void setup_options(void)
+     len = lstrlenW(appname);
+     setup_mouselook(appname);
+     setup_native_fullscreen();
++    setup_fullscreen_normal_level();
+     setup_app_identity();
+ 
+     if (len && len < MAX_PATH)

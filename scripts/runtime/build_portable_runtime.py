@@ -25,6 +25,7 @@ HEARTPORT_PATCHES_DIR = ROOT / 'patches/heartport'
 HEARTPORT_PATCHES = {
     'wine-winemac-dock-identity.patch': '61dbeb5423bc4a37ba75f7dcb5d5e7dfec3fb1c503928417901bf96b12d00fec',
     'wine-winemac-native-fullscreen.patch': 'c477e54aa490b3242b645dac3093310280dca24c08143b91e02c3ee6896581f0',
+    'wine-winemac-fullscreen-normal-level.patch': 'd940af08a72d3b6fe6acfb7902b6b228578d06291f6302ba50cfa3509c1b179a',
     'wine-mfreadwrite-shared-textures.patch': '06c17dfebf4b6bd94dbdfda9ccaf036cd1a03385291c4864adeb64c3e599115c',
     'wine-coremessaging-dispatcher-queue.patch': '817ae3656c359d249492a0e52c97e9af679adde9e8e956842e3d19b3597490bd',
 }
