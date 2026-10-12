@@ -26,6 +26,18 @@ INPUTS = {
     # Heartport: FFmpeg for Wine's winedmo (Media Foundation demuxing). sha256 as Homebrew's
     # ffmpeg@7 formula pins the same ffmpeg.org URL (ffmpeg.org publishes GPG signatures only).
     'ffmpeg-7.1.5.tar.xz': ('https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz', 'de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f'),
+    # Heartport: GStreamer for winegstreamer's Media Foundation decoders (H.264, AAC through
+    # gst-libav over the FFmpeg above). sha256 from each project's release page: GitHub's asset
+    # digests (libffi, pcre2), download.gnome.org's .sha256sum (glib), and
+    # gstreamer.freedesktop.org's .sha256sum files.
+    'libffi-3.5.2.tar.gz': ('https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz', 'f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc'),
+    'pcre2-10.49.tar.bz2': ('https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2', '53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384'),
+    'glib-2.86.5.tar.xz': ('https://download.gnome.org/sources/glib/2.86/glib-2.86.5.tar.xz', 'ce85a947bb8b3c0204dbeff79aec39bcb46371c6fafb64ba5b8726c71e038d5f'),
+    'gstreamer-1.26.11.tar.xz': ('https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-1.26.11.tar.xz', '2e0bd192d0438ea606a6f76a95c8e16542167656ffec2c2bc3aaf6ee0837fbf6'),
+    'gst-plugins-base-1.26.11.tar.xz': ('https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugins-base-1.26.11.tar.xz', 'fc50f885d41f5d0407ce0876ec7235d9e7b82d48db2f4bc72c5f244a4ac79263'),
+    'gst-plugins-good-1.26.11.tar.xz': ('https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-1.26.11.tar.xz', '001deb0876d5d743cd3448abf74a27adec3fd850012fcb1b00994861bd6c1145'),
+    'gst-plugins-bad-1.26.11.tar.xz': ('https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-1.26.11.tar.xz', '110fb82795f0e569b1e27b12ab9699d35c7762e1ff4db95335d6ac8d1442af3d'),
+    'gst-libav-1.26.11.tar.xz': ('https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-1.26.11.tar.xz', '9bb3d2681ef0de92d1b1a9d955186236ee22e64f372db9bfc0d22e2d0df19865'),
 }
 # Archive name prefix of each dependency that --only can build alone.
 ONLY = {'sdl2': 'SDL2-', 'ffmpeg': 'ffmpeg-'}
@@ -42,7 +54,7 @@ SDL2_OPTIONS = ['--disable-joystick-mfi', '--disable-audio', '--disable-video', 
 # No x86 assembly (no nasm in the toolchain), no programs but ffprobe (a build-time check
 # tool, never shipped: the assembler copies libraries only).
 FFMPEG_OPTIONS = ['--disable-autodetect', '--enable-zlib', '--disable-x86asm', '--disable-doc',
-                  '--disable-programs', '--enable-ffprobe', '--disable-avdevice', '--disable-avfilter',
+                  '--disable-programs', '--enable-ffprobe', '--disable-avdevice',
                   '--disable-postproc', '--disable-network', '--disable-everything',
                   '--enable-protocol=file',
                   '--enable-demuxer=mov,avi,wav,asf,mpegps,mpegvideo,mp3,aac,h264,hevc',
@@ -50,14 +62,92 @@ FFMPEG_OPTIONS = ['--disable-autodetect', '--enable-zlib', '--disable-x86asm', '
                   '--enable-decoder=h264,hevc,aac,mp3,mp3float',
                   '--enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,null',
                   '--enable-swscale', '--enable-swresample']
+# libavfilter is built (no filters) because gst-libav links it.
+# GStreamer stack (Heartport). Autotools: libffi and pcre2 (GLib's dependencies). Meson, cross
+# compiled for x86_64 with the venv's meson: GLib, GStreamer and the plugin modules, each limited
+# to what winegstreamer's MP4/H.264/AAC path uses (assemble_portable_runtime.py ships the plugins
+# in GSTREAMER_PLUGINS). ORC, introspection, NLS, docs, tests and examples are off. GLib's
+# gettext is its own proxy-libintl subproject (frida/proxy-libintl at the commit glib's wrap pins).
+LIBFFI_OPTIONS = ['--disable-docs', '--disable-multi-os-directory']
+PCRE2_OPTIONS = ['--enable-pcre2-8', '--disable-pcre2-16', '--disable-pcre2-32']
+MESON_COMMON = ['-Ddoc=disabled', '-Dnls=disabled', '-Dtests=disabled', '-Dexamples=disabled',
+                '-Dintrospection=disabled', '-Dorc=disabled']
+MESON = {
+    'glib': ['-Dintrospection=disabled', '-Dtests=false', '-Dinstalled_tests=false', '-Dselinux=disabled',
+             '-Dlibmount=disabled', '-Dnls=disabled', '-Dman-pages=disabled', '-Ddocumentation=false',
+             '-Dsysprof=disabled', '-Ddtrace=disabled', '-Dsystemtap=disabled', '-Dlibelf=disabled'],
+    'gstreamer': ['-Ddoc=disabled', '-Dnls=disabled', '-Dtests=disabled', '-Dexamples=disabled',
+                  '-Dintrospection=disabled', '-Dbenchmarks=disabled', '-Dtools=enabled',
+                  '-Dlibunwind=disabled', '-Dlibdw=disabled', '-Dbash-completion=disabled',
+                  '-Dptp-helper=disabled', '-Dcheck=disabled'],
+    'gst-plugins-base': MESON_COMMON + ['-Dauto_features=disabled', '-Dapp=enabled', '-Daudioconvert=enabled',
+                                        '-Daudioresample=enabled', '-Dvideoconvertscale=enabled',
+                                        '-Dtypefind=enabled', '-Dplayback=enabled', '-Dvolume=enabled',
+                                        '-Dtools=disabled'],
+    'gst-plugins-good': [o for o in MESON_COMMON if o != '-Dintrospection=disabled'] + ['-Dauto_features=disabled', '-Disomp4=enabled', '-Daudioparsers=enabled',
+                                        '-Ddeinterlace=enabled', '-Dvideofilter=enabled'],
+    'gst-plugins-bad': MESON_COMMON + ['-Dauto_features=disabled', '-Dvideoparsers=enabled'],
+    'gst-libav': ['-Ddoc=disabled', '-Dtests=disabled'],
+}
+MESON_PREFIX = '/build/heartport/clean-deps'
 WINE_SHA = 'ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872'
+TOOLCHAINS = Path(__file__).resolve().parents[2].parent / 'mactopia-runtime/toolchains'
+
+
+def merge_tree(source, target):
+    """Copy SOURCE over TARGET, replacing files and symlinks (copytree cannot replace symlinks)."""
+    for p in sorted(source.rglob('*')):
+        q = target / p.relative_to(source)
+        if p.is_dir() and not p.is_symlink():
+            q.mkdir(parents=True, exist_ok=True)
+            continue
+        if q.is_symlink() or q.exists(): q.unlink()
+        if p.is_symlink(): q.symlink_to(p.readlink())
+        else: shutil.copy2(p, q)
+
+
+def meson_cross_file(path, prefix, flags):
+    """x86_64 macOS host, the Command Line Tools clang, our pkgconf (relocating .pc prefixes,
+    since the meson components install under MESON_PREFIX through a DESTDIR)."""
+    q = lambda v: repr(str(v))
+    arch = "['-arch', 'x86_64']"
+    args = '[' + ', '.join(q(f) for f in flags.split()) + ']'
+    path.write_text(f"""[binaries]
+c = ['/usr/bin/clang', '-arch', 'x86_64']
+cpp = ['/usr/bin/clang++', '-arch', 'x86_64']
+objc = ['/usr/bin/clang', '-arch', 'x86_64']
+objcpp = ['/usr/bin/clang++', '-arch', 'x86_64']
+ar = '/usr/bin/ar'
+strip = '/usr/bin/strip'
+pkg-config = [{q(prefix / 'bin/pkgconf')}, '--define-prefix']
+
+[built-in options]
+c_args = {args}
+cpp_args = {args}
+objc_args = {args}
+objcpp_args = {args}
+c_link_args = [{q('-L' + str(prefix / 'lib'))}]
+cpp_link_args = [{q('-L' + str(prefix / 'lib'))}]
+objc_link_args = [{q('-L' + str(prefix / 'lib'))}]
+
+[properties]
+needs_exe_wrapper = false
+
+[host_machine]
+system = 'darwin'
+subsystem = 'macos'
+kernel = 'xnu'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+""")
 
 
 def sha(p):
     with p.open('rb') as f: return hashlib.file_digest(f, 'sha256').hexdigest()
 
 
-def build(work, jobs, only=None):
+def build(work, jobs, only=None, start=None, toolchains=TOOLCHAINS):
     if any(c.isspace() for c in str(work)):
         raise ValueError('Autoconf source workspace must not contain whitespace; installed runtime supports spaces')
     source = work / 'native-sources'; source.mkdir(parents=True, exist_ok=True)
@@ -95,7 +185,7 @@ def build(work, jobs, only=None):
                LDFLAGS='-L' + str(prefix / 'lib'), CPPFLAGS='-I' + str(prefix / 'include'),
                PKG_CONFIG_LIBDIR=str(prefix / 'lib/pkgconfig'), PKG_CONFIG_PATH='',
                MACOSX_DEPLOYMENT_TARGET='26.0')
-    if only and (prefix / 'bin/pkgconf').exists(): env['PKG_CONFIG'] = str(prefix / 'bin/pkgconf')
+    if (only or start) and (prefix / 'bin/pkgconf').exists(): env['PKG_CONFIG'] = str(prefix / 'bin/pkgconf')
     components = [
         ('pkgconf', source / 'pkgconf-2.5.1', []),
         ('gmp', gnu / 'sources/gnutls/gmp', ['--disable-cxx']),
@@ -106,8 +196,18 @@ def build(work, jobs, only=None):
         ('inotify', source / 'libinotify-20240724', ['ac_cv_func_fdclosedir=no']),
         ('sdl2', source / 'SDL2-2.32.10', SDL2_OPTIONS),
         ('ffmpeg', source / 'ffmpeg-7.1.5', FFMPEG_OPTIONS),
+        ('libffi', source / 'libffi-3.5.2', LIBFFI_OPTIONS),
+        ('pcre2', source / 'pcre2-10.49', PCRE2_OPTIONS),
+        ('glib', source / 'glib-2.86.5', MESON['glib']),
+        ('gstreamer', source / 'gstreamer-1.26.11', MESON['gstreamer']),
+        ('gst-plugins-base', source / 'gst-plugins-base-1.26.11', MESON['gst-plugins-base']),
+        ('gst-plugins-good', source / 'gst-plugins-good-1.26.11', MESON['gst-plugins-good']),
+        ('gst-plugins-bad', source / 'gst-plugins-bad-1.26.11', MESON['gst-plugins-bad']),
+        ('gst-libav', source / 'gst-libav-1.26.11', MESON['gst-libav']),
     ]
     selected = [c for c in components if only in (None, c[0])]
+    if start:  # --from: the earlier components are already built
+        selected = selected[[c[0] for c in selected].index(start):]
     old_proof = work / 'native-build-proof.json'
     previous_options = json.loads(old_proof.read_text()).get('configure_options', {}) if old_proof.exists() else {}
     for name, src, options in selected:
@@ -122,6 +222,33 @@ def build(work, jobs, only=None):
                              'compiler': env['CC'], 'flags': env['CFLAGS']}
             changed = ((marker.exists() and json.loads(marker.read_text()) != configuration) or
                        (name in previous_options and previous_options[name] != options))
+            if name in MESON:
+                # Installed under MESON_PREFIX through a DESTDIR, then copied into the workspace
+                # prefix: the paths compiled into GLib and GStreamer (plugin and locale
+                # directories, all overridden at run time) name no build machine folder.
+                menv = dict(env, PATH=':'.join([str(toolchains / 'python/bin'), str(toolchains / 'bison/bin'), env['PATH']]))
+                for k in ('CC', 'CXX', 'CFLAGS', 'LDFLAGS', 'CPPFLAGS'): menv.pop(k, None)
+                # pkgconf was configured with this prefix, so it treats <prefix>/include and
+                # <prefix>/lib as system paths and drops them; meson needs them spelled out.
+                menv.update(PKG_CONFIG_SYSTEM_INCLUDE_PATH='/usr/include', PKG_CONFIG_SYSTEM_LIBRARY_PATH='/usr/lib')
+                cross = directory / 'cross-x86_64-macos.ini'
+                meson_cross_file(cross, prefix, env['CFLAGS'])
+                meson = toolchains / 'python/bin/meson'
+                def mrun(args): subprocess.run([str(a) for a in args], cwd=directory, env=menv, stdout=log, stderr=subprocess.STDOUT, check=True)
+                build_dir = directory / 'build'
+                if changed or not (build_dir / 'build.ninja').exists():
+                    shutil.rmtree(build_dir, ignore_errors=True)
+                    mrun([meson, 'setup', build_dir, src, '--cross-file', cross, '--prefix', MESON_PREFIX,
+                          '--libdir', 'lib', '--buildtype', 'release', '-Ddefault_library=shared',
+                          '-Db_ndebug=if-release'] + options)
+                marker.write_text(json.dumps(configuration, indent=2) + '\n')
+                mrun([meson, 'compile', '-C', build_dir, '-j', str(jobs)])
+                root = directory / 'destdir'
+                shutil.rmtree(root, ignore_errors=True)
+                mrun([meson, 'install', '-C', build_dir, '--no-rebuild', '--destdir', root])
+                merge_tree(root / MESON_PREFIX.lstrip('/'), prefix)
+                print('Built native dependency: ' + name, flush=True)
+                continue
             if changed and (directory / 'Makefile').exists(): run(['make', 'clean'])
             if name == 'ffmpeg':
                 # FFmpeg's configure is not autoconf: no --host, and it takes the compiler and
@@ -153,7 +280,9 @@ def build(work, jobs, only=None):
         for p in src.iterdir():
             # FFmpeg is built LGPL-only: its LICENSE.md and the LGPL 2.1 text, not the GPL ones.
             if name == 'ffmpeg' and p.name not in ('LICENSE.md', 'COPYING.LGPLv2.1'): continue
-            if p.is_file() and p.name.startswith(('COPYING', 'LICENSE', 'AUTHORS', 'NOTICE')): shutil.copy2(p, target / p.name)
+            if p.is_file() and p.name.startswith(('COPYING', 'LICENSE', 'LICENCE', 'AUTHORS', 'NOTICE')): shutil.copy2(p, target / p.name)
+        if name == 'glib':  # GLib's gettext stand-in, linked statically into GLib
+            shutil.copy2(src / 'subprojects/proxy-libintl/COPYING', target / 'proxy-libintl-COPYING')
     if only is None:
         shutil.copy2(source / 'MoltenVK/LICENSE', licenses / 'MoltenVK-LICENSE')
     record = {'inputs': {n: {'url': v[0], 'sha256': v[1]} for n, v in INPUTS.items()},
@@ -168,4 +297,6 @@ if __name__ == '__main__':
     p.add_argument('--workspace', type=Path, required=True)
     p.add_argument('--jobs', type=int, choices=range(1, 17), default=2)
     p.add_argument('--only', choices=sorted(ONLY), help='Build only this dependency (it needs none of the others)')
-    a = p.parse_args(); build(a.workspace.resolve(), a.jobs, a.only)
+    p.add_argument('--from', dest='start', help='Start at this dependency (the earlier ones are built)')
+    p.add_argument('--toolchains', type=Path, default=TOOLCHAINS, help='For meson and ninja (python/bin)')
+    a = p.parse_args(); build(a.workspace.resolve(), a.jobs, a.only, a.start, a.toolchains.resolve())
