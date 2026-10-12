@@ -47,6 +47,9 @@ final class AppModel: ObservableObject {
     /// The last informational result (repair summary, "TapTap is not installed yet", ...).
     @Published var notice: String?
     @Published private(set) var hud = false
+    /// Seconds left in the TapTap download, once the rate is known.
+    @Published private(set) var downloadETA: TimeInterval?
+    private var downloadRate = DownloadRate()
 
     /// Window plumbing, set by the AppDelegate.
     var showWindow: () -> Void = {}
@@ -70,6 +73,14 @@ final class AppModel: ObservableObject {
     }
 
     var busy: Bool { activity != nil }
+
+    /// The step dot the window highlights.
+    var step: SetupStep? { phase?.step }
+
+    /// When Heartopia was last started (state.json `lastLaunch`).
+    var lastPlayed: Date? {
+        report?.state.lastLaunch.flatMap { ISO8601DateFormatter().date(from: $0) }
+    }
 
     // MARK: status
 
@@ -103,6 +114,13 @@ final class AppModel: ObservableObject {
         report = new
         phase = new.phase
         hud = new.state.hud ?? false
+        if case .download(let d)? = phase, let have = d.bytesOnDisk, let total = d.totalBytes {
+            downloadRate.add(bytes: have, at: Date())
+            downloadETA = downloadRate.eta(remaining: total - have)
+        } else {
+            downloadRate.reset()
+            downloadETA = nil
+        }
 
         if !firstRefreshDone {
             firstRefreshDone = true

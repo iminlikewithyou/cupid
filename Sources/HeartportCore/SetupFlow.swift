@@ -129,3 +129,77 @@ public struct SetupInputs: Sendable, Equatable {
 extension StatusReport {
     public var phase: SetupPhase { SetupInputs(self).phase }
 }
+
+/// The five steps the app's window shows as a row of dots (Runtime, Windows, TapTap, Download,
+/// Ready). Several phases map onto one step; Rosetta counts as part of the runtime step.
+public enum SetupStep: Int, Sendable, CaseIterable, Comparable {
+    case runtime, windows, taptap, download, ready
+
+    public var label: String {
+        switch self {
+        case .runtime: "Runtime"
+        case .windows: "Windows"
+        case .taptap: "TapTap"
+        case .download: "Download"
+        case .ready: "Ready"
+        }
+    }
+
+    public static func < (a: SetupStep, b: SetupStep) -> Bool { a.rawValue < b.rawValue }
+}
+
+extension SetupPhase {
+    /// The step dot this phase highlights.
+    public var step: SetupStep {
+        switch self {
+        case .rosettaMissing, .runtime: .runtime
+        case .prefix: .windows
+        case .taptap: .taptap
+        case .download: .download
+        case .ready: .ready
+        }
+    }
+}
+
+/// Download speed from periodic samples of the bytes on disk, for an ETA. Pure: the caller
+/// passes the clock. Keeps the last `window` seconds of samples; a drop in the byte count (a
+/// restarted or re-verified download) starts over.
+public struct DownloadRate: Sendable, Equatable {
+    public struct Sample: Sendable, Equatable {
+        public var time: Date
+        public var bytes: Int64
+    }
+
+    public private(set) var samples: [Sample] = []
+    public var window: TimeInterval
+    /// Shortest span of samples that gives a rate (a single 2 s refresh is too noisy).
+    public var minimumSpan: TimeInterval
+
+    public init(window: TimeInterval = 60, minimumSpan: TimeInterval = 6) {
+        self.window = window
+        self.minimumSpan = minimumSpan
+    }
+
+    public mutating func add(bytes: Int64, at time: Date) {
+        if let last = samples.last, bytes < last.bytes || time < last.time { samples.removeAll() }
+        samples.append(Sample(time: time, bytes: bytes))
+        samples.removeAll { time.timeIntervalSince($0.time) > window }
+    }
+
+    public mutating func reset() { samples.removeAll() }
+
+    /// Bytes per second over the window, nil until the samples span `minimumSpan` with progress.
+    public var bytesPerSecond: Double? {
+        guard let first = samples.first, let last = samples.last else { return nil }
+        let span = last.time.timeIntervalSince(first.time)
+        let delta = last.bytes - first.bytes
+        guard span >= minimumSpan, delta > 0 else { return nil }
+        return Double(delta) / span
+    }
+
+    /// Seconds left for `remaining` bytes at the current rate.
+    public func eta(remaining: Int64) -> TimeInterval? {
+        guard let rate = bytesPerSecond else { return nil }
+        return Double(max(0, remaining)) / rate
+    }
+}

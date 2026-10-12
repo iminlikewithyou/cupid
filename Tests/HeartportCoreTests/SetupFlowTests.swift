@@ -127,4 +127,48 @@ final class SetupFlowTests: XCTestCase {
         XCTAssertFalse(inputs.prefixExists)
         XCTAssertEqual(inputs.gameState, "not-started")
     }
+
+    func testStepIndexMapping() {
+        XCTAssertEqual(SetupStep.allCases.map(\.label), ["Runtime", "Windows", "TapTap", "Download", "Ready"])
+        XCTAssertEqual(SetupPhase.rosettaMissing.step, .runtime)
+        XCTAssertEqual(SetupPhase.runtime.step, .runtime)
+        XCTAssertEqual(SetupPhase.prefix(exists: false).step, .windows)
+        XCTAssertEqual(SetupPhase.prefix(exists: true).step, .windows)
+        XCTAssertEqual(SetupPhase.taptap(installerRunning: true).step, .taptap)
+        XCTAssertEqual(SetupPhase.download(.init()).step, .download)
+        XCTAssertEqual(SetupPhase.ready(.idle).step, .ready)
+        XCTAssertEqual(SetupPhase.ready(.gameRunning(pid: 1)).step, .ready)
+        XCTAssertTrue(SetupStep.windows < .taptap)
+        // The flow only moves forward through the steps.
+        var i = SetupInputs()
+        XCTAssertEqual(i.phase.step.rawValue, 0)
+        i = readyInputs()
+        XCTAssertEqual(i.phase.step, .ready)
+    }
+
+    func testDownloadRateAndETA() {
+        var rate = DownloadRate(window: 60, minimumSpan: 6)
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        rate.add(bytes: 1_000, at: t0)
+        XCTAssertNil(rate.bytesPerSecond)
+        rate.add(bytes: 3_000, at: t0.addingTimeInterval(2))
+        XCTAssertNil(rate.bytesPerSecond, "span below the minimum")
+        rate.add(bytes: 11_000, at: t0.addingTimeInterval(10))
+        XCTAssertEqual(rate.bytesPerSecond, 1_000)
+        XCTAssertEqual(rate.eta(remaining: 50_000), 50)
+        XCTAssertEqual(rate.eta(remaining: -5), 0)
+
+        // Old samples fall out of the window.
+        rate.add(bytes: 111_000, at: t0.addingTimeInterval(100))
+        XCTAssertEqual(rate.samples.count, 1)
+        XCTAssertNil(rate.bytesPerSecond)
+
+        // No progress gives no rate; a drop in bytes starts over.
+        var stalled = DownloadRate(minimumSpan: 1)
+        stalled.add(bytes: 500, at: t0)
+        stalled.add(bytes: 500, at: t0.addingTimeInterval(5))
+        XCTAssertNil(stalled.eta(remaining: 100))
+        stalled.add(bytes: 100, at: t0.addingTimeInterval(6))
+        XCTAssertEqual(stalled.samples, [.init(time: t0.addingTimeInterval(6), bytes: 100)])
+    }
 }

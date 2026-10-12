@@ -19,13 +19,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = buildMenu()
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
-                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        // HEARTPORT_APPEARANCE=light|dark forces an appearance (for checking both looks).
+        switch ProcessInfo.processInfo.environment["HEARTPORT_APPEARANCE"]?.lowercased() {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: break
+        }
+        let size = ContentView.size
+        window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
+                          styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+                          backing: .buffered, defer: false)
         window.title = "Heartport"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: ContentView(model: model))
+        let host = NSHostingView(rootView: ContentView(model: model))
+        host.sizingOptions = []
+        window.contentView = host
+        window.setContentSize(size)
         window.center()
-        window.setFrameAutosaveName("HeartportMain")
+        // Remembers the position only; the size is fixed.
+        if window.setFrameAutosaveName("HeartportSetupWindow") { window.setContentSize(size) }
 
         model.showWindow = { [weak self] in
             guard let self else { return }
@@ -127,11 +142,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     @objc func openSettings(_ sender: Any?) {
         if settingsWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 170),
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: SettingsView.width, height: 200),
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
             w.title = "Settings"
             w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: SettingsView(model: model))
+            let host = NSHostingView(rootView: SettingsView(model: model))
+            host.sizingOptions = [.preferredContentSize]
+            w.contentView = host
             w.center()
             settingsWindow = w
         }
