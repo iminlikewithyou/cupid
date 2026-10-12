@@ -1,7 +1,7 @@
 import Foundation
 
 /// Whether Heartopia's exit was a normal quit or a crash. The app quits with a normal exit and
-/// shows its window after a crash (docs/PLAN.md "Decisions").
+/// shows its window after a crash.
 ///
 /// Why a heuristic: Cupid starts the game as `wine start.exe /exec xdt.exe` without `/wait`,
 /// so the process it spawns returns as soon as xdt.exe has been created (and Game Mode re-execs

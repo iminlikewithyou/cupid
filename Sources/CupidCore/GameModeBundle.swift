@@ -6,9 +6,8 @@ import Foundation
 /// starts programs named in WINE_GAME_MODE from `lib/wine/game-mode/<ExeBaseName>.app`.
 ///
 /// Re-implemented in Swift from Recall's scripts/game_mode_app.py (Apache-2.0,
-/// https://github.com/AsherJN/recall) as adapted in scripts/spike/game_mode_app.py: the copy
-/// differs from the loader only in its LC_UUID (uuid5 of the loader's UUID and the bundle
-/// identifier), and is signed as a bundle with the loader's entitlements and the hardened runtime.
+/// https://github.com/AsherJN/recall), adapted for xdt.exe: the copy differs from the loader
+/// only in its LC_UUID (uuid5 of the loader's UUID and the bundle identifier), and is signed as a bundle with the loader's entitlements and the hardened runtime.
 public enum GameModeBundle {
     public static let relativePath = "lib/wine/game-mode/xdt.app"
     public static let loaderPath = "lib/wine/x86_64-unix/wine"

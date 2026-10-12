@@ -143,7 +143,7 @@ public struct RuntimeInstaller: Sendable {
                                                 executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> [URL] {
         var out: [URL] = []
         if let env = environment["CUPID_RUNTIME_ARCHIVE"], !env.isEmpty { out.append(URL(fileURLWithPath: env)) }
-        // In the app: Contents/Helpers/cupid -> Contents/Resources/runtime.tar.gz (PLAN.md layout).
+        // In the app: Contents/Helpers/cupid -> Contents/Resources/runtime.tar.gz (the bundle layout of scripts/build-app.sh).
         let exeDir = executable.resolvingSymlinksInPath().deletingLastPathComponent()
         out.append(exeDir.appendingPathComponent("../Resources/runtime.tar.gz").standardizedFileURL)
         out.append(exeDir.appendingPathComponent("../Resources/runtime/runtime.tar.gz").standardizedFileURL)

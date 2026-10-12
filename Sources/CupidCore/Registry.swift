@@ -137,8 +137,8 @@ public enum RegistrySeeds {
 
     /// Heartopia's PlayerPrefs (hashed names), all REG_DWORD. No resolution or screen-size
     /// values: with them the game asked "Resolution switched to 3840x2160@120 FPS. Apply?" on
-    /// its first launch; without them it picks the desktop size itself (docs/PLAN.md,
-    /// fresh-install test run 2). Frame rate is capped in dxmt.conf instead.
+    /// its first launch; without them it picks the desktop size itself (seen on fresh installs).
+    /// Frame rate is capped in dxmt.conf instead.
     public static let gamePrefs: [RegistrySeed] = [
         ("UnityGraphicsQuality_h1669003810", 1),            // High
         ("QualityLevel_h4026849054", 1),

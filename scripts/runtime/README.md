@@ -16,7 +16,8 @@ copies of Recall's release pipeline, adapted for Cupid:
   as the runtime's `config/dxmt.conf` (identical to Recall 1.3.0's).
 
 The first build (`cupid-20261012.1`) is a parity build: the same inputs and patches as
-Recall's runtime `phase2-20261007.3`. See docs/PLAN.md, "Runtime build", for what came out.
+Recall's runtime `phase2-20261007.3`. Its files matched Recall's apart from build paths, PE
+timestamps, signatures, and the minimum macOS version (26.0 instead of 15.0).
 
 ## Layout
 

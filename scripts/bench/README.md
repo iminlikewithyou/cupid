@@ -92,7 +92,8 @@ trace can be deleted.
 
 - **Frame time is not input latency.** These numbers say how smoothly frames
   reach the screen, not how long a mouse movement takes to show up. Measure
-  that separately (see docs/PLAN.md, Measurement).
+  that separately, for example with high-speed video of the mouse and the
+  screen.
 - One run per app per scenario is noisy; repeat a run if the two runs of the
   same app would disagree by more than the difference you are reporting.
 - Instruments itself costs a little CPU while recording, the same for both

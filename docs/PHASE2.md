@@ -1,7 +1,6 @@
 # Phase 2 brief: Cupid core, CLI and app
 
-Read `docs/PLAN.md` for the design and `docs/SPIKE.md` for what the spike proved on
-2026-10-11. This document is the implementation brief. Everything below was verified on
+This document is the implementation brief. Everything below was verified on
 the owner's M2 Max, macOS 26.6.2, unless marked "assumed".
 
 ## Outcome
@@ -25,7 +24,7 @@ Cupid/                                  Swift package + app sources
 │   └── Licenses/
 ├── scripts/
 │   ├── fetch-runtime.sh                   Recall DMG -> runtime.tar.gz, sha256-pinned, manifest-verified
-│   ├── make-game-mode-app.py              from spike/game_mode_app.py
+│   ├── make-game-mode-app.py              from Recall's scripts/game_mode_app.py
 │   └── build-app.sh                       bundle, codesign (ad hoc or Developer ID), DMG
 └── docs/
 ```
@@ -85,7 +84,7 @@ adopt an existing one rather than rebuild it.
      No resolution or screen-size values (`PcResolutionLevelString`,
      `LastPcResolutionLevelStringV1`, `Screenmanager Resolution Use Native/Width/Height`):
      with them the first launch asked "Resolution switched to 3840x2160@120 FPS. Apply?"
-     (fresh-install runs 1 and 2, docs/PLAN.md); without them the game picks the desktop size
+     (the first two fresh-install runs); without them the game picks the desktop size
      itself, as the spike's unseeded first launch did. To verify on the next fresh run. The
      frame rate is capped at 60 in `dxmt.conf` (`d3d11.preferredMaxFrameRate`) for power.
    - Seeds are applied only when the key or value is absent, so the player's later

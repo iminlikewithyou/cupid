@@ -616,7 +616,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: game exit (docs/PLAN.md "Decisions": quit with the game)
+    // MARK: game exit (Cupid quits when the game exits normally; a crash shows the window)
 
     /// While the window is hidden only the process list is checked (StatusReport.gather is heavier).
     private func checkGameStillRunning() {
