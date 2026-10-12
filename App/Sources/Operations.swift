@@ -134,11 +134,53 @@ enum Operations {
     static func activate(_ pids: [Int32]) {
         guard !pids.isEmpty else { return }
         DispatchQueue.main.async {
-            for pid in pids {
-                guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
-                NSApp.yieldActivation(to: app)
-                app.activate(options: [.activateAllWindows])
+            MainActor.assumeIsolated {
+                for pid in pids {
+                    guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+                    requestActivation(of: app)
+                }
             }
+        }
+    }
+
+    /// One activation request under cooperative activation (macOS 14+): another app comes
+    /// forward only when the active app yields to it, so Cupid yields and then activates the
+    /// target on its own behalf.
+    @MainActor
+    static func requestActivation(of app: NSRunningApplication) {
+        NSApp.yieldActivation(to: app)
+        app.activate(from: NSRunningApplication.current, options: [.activateAllWindows])
+    }
+
+    /// Brings the app of `pid` to the front: requests activation every `interval` until the app
+    /// reports itself active or `timeout` passes (Wine's process becomes a regular app slightly
+    /// after its first window, so the first requests can be ignored). Logs the outcome as
+    /// "app: <name> in front" or "app: could not bring <name> to the front after N tries", then
+    /// calls `done` with whether it worked.
+    @MainActor
+    static func bringAppToFront(pid: Int32, name: String, paths: Paths,
+                                timeout: TimeInterval = 3, interval: TimeInterval = 0.3,
+                                done: @escaping @MainActor (Bool) -> Void = { _ in }) {
+        let tries = max(1, Int((timeout / interval).rounded(.down)) + 1)
+        Task { @MainActor in
+            for attempt in 1...tries {
+                if let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated {
+                    if app.isActive {
+                        Logs.append(paths, "app: \(name) in front")
+                        done(true)
+                        return
+                    }
+                    requestActivation(of: app)
+                }
+                if attempt < tries { try? await Task.sleep(for: .seconds(interval)) }
+            }
+            if let app = NSRunningApplication(processIdentifier: pid), app.isActive {
+                Logs.append(paths, "app: \(name) in front")
+                done(true)
+                return
+            }
+            Logs.append(paths, "app: could not bring \(name) to the front after \(tries) tries")
+            done(false)
         }
     }
 }

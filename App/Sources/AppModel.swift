@@ -596,7 +596,8 @@ final class AppModel: ObservableObject {
         let paths = paths
         markSetupComplete()
         updatingGame = false
-        if !auto { hideWindow() }
+        // Cupid's window stays up (showing progress) until the game is in front: under
+        // cooperative activation only the active app can hand activation to another.
         let started = Date()
         perform("Starting Heartopia", failureTitle: "Heartopia didn't start.") { r in
             if stopFirst {
@@ -610,9 +611,11 @@ final class AppModel: ObservableObject {
             let result = try GameLauncher(paths: paths).play(options, waitForWindow: true, log: { r.line($0) })
             return result.game?.pid
         } then: { pid in
-            if let pid {
-                self.watchedGame = (pid, started)
-                NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateAllWindows])
+            guard let pid else { if !auto { self.hideWindow() }; return }
+            self.watchedGame = (pid, started)
+            Operations.bringAppToFront(pid: pid, name: "Heartopia", paths: paths) { _ in
+                // The auto path never showed the window. Hidden either way, so Cupid quits with the game.
+                if !auto { self.hideWindow() }
             }
         }
     }
@@ -677,8 +680,9 @@ final class AppModel: ObservableObject {
 
     func showHeartopia(pid: Int32) {
         guard !previewing else { return }
-        if let app = NSRunningApplication(processIdentifier: pid), app.activate(options: [.activateAllWindows]) { return }
-        failure = "Could not bring Heartopia to the front."
+        Operations.bringAppToFront(pid: pid, name: "Heartopia", paths: paths) { inFront in
+            if !inFront { self.failure = "Could not bring Heartopia to the front." }
+        }
     }
 
     func updateGame() {
