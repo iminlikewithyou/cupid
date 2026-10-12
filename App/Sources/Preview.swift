@@ -3,7 +3,8 @@ import HeartportCore
 
 /// HEARTPORT_PREVIEW_PHASE=<name> renders one setup state with sample data, for screenshots and
 /// design review. The model then polls nothing and every action is inert (AppModel.previewing).
-/// HEARTPORT_PREVIEW_SETTINGS=1 also opens the Settings window.
+/// HEARTPORT_PREVIEW_SETTINGS=1 also opens the Settings window, HEARTPORT_PREVIEW_ABOUT=1 the
+/// About window.
 struct Preview {
     var phase: SetupPhase?
     var activity: Activity?
@@ -149,6 +150,8 @@ struct Preview {
         r.prefix.exists = true
         r.taptap.launcherInstalled = true
         r.game.state = "installed"
+        r.game.version = "0.5.5"
+        r.game.build = "5847751"
         r.state.lastLaunch = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
         return r
     }

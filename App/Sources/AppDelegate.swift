@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     let model: AppModel
     private var window: NSWindow!
     private var settingsWindow: NSWindow?
+    private var aboutWindow: NSWindow?
 
     override init() {
         let env = ProcessInfo.processInfo.environment
@@ -75,6 +76,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                 // Queued after showPreview's window, so Settings ends up key.
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.openSettings(nil) } }
             }
+            if env["HEARTPORT_PREVIEW_ABOUT"] == "1" {
+                DispatchQueue.main.async { MainActor.assumeIsolated { self.openAbout(nil) } }
+            }
         } else {
             // Holding Option while opening skips the game and shows the window (Settings, Repair).
             if NSEvent.modifierFlags.contains(.option) { model.skipAutoLaunch() }
@@ -106,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "Heartport")
-        appMenu.addItem(item("About Heartport", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        appMenu.addItem(item("About Heartport", #selector(openAbout(_:))))
         appMenu.addItem(.separator())
         appMenu.addItem(item("Settings…", #selector(openSettings(_:)), ","))
         appMenu.addItem(.separator())
@@ -174,14 +178,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
             w.title = "Settings"
             w.isReleasedWhenClosed = false
-            let host = NSHostingView(rootView: SettingsView(model: model))
+            // A controller, so the window follows the form's height (a grouped Form has no
+            // intrinsic height for an NSHostingView alone).
+            let host = NSHostingController(rootView: SettingsView(model: model))
             host.sizingOptions = [.preferredContentSize]
-            w.contentView = host
+            w.contentViewController = host
             w.center()
             settingsWindow = w
         }
         model.refresh()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate()
+    }
+
+    @objc func openAbout(_ sender: Any?) {
+        if aboutWindow == nil {
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: AboutView.width, height: 200),
+                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            w.title = "About Heartport"
+            w.titleVisibility = .hidden
+            w.titlebarAppearsTransparent = true
+            w.isMovableByWindowBackground = true
+            w.isReleasedWhenClosed = false
+            // A controller, so the window follows the form's height (a grouped Form has no
+            // intrinsic height for an NSHostingView alone).
+            let host = NSHostingController(rootView: AboutView(model: model))
+            host.sizingOptions = [.preferredContentSize]
+            w.contentViewController = host
+            w.center()
+            aboutWindow = w
+        }
+        model.refresh()
+        aboutWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate()
     }
 }

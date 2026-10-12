@@ -806,10 +806,15 @@ struct SettingsView: View {
                     Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
                 }
             } footer: {
-                Text("Hold Option while opening Heartport to reach this window without starting the game.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Hold Option while opening Heartport to reach this window without starting the game.")
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let version = model.report?.game.version {
+                        Text("Heartopia \(version)")
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
