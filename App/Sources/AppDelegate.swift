@@ -96,7 +96,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if window?.isVisible == true { model.refresh() }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    /// The close button quits Cupid when neither Heartopia, TapTap nor a step is running; otherwise the
+    /// window just goes away as before (the game-exit rule or the Dock brings it back). Hiding
+    /// the window (orderOut, the auto-launch path) is not a close and never gets here.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        model.shouldQuitOnWindowClose()
+    }
 
     // MARK: menu
 

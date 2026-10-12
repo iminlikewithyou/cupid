@@ -106,6 +106,10 @@ final class AppModel: ObservableObject {
     private var autoLaunch: Bool
     /// The game Cupid is watching, and when it was launched (for GameExit's short-run rule).
     private var watchedGame: (pid: Int32, launched: Date)?
+    /// The window was closed while TapTap or a step (not a watched game) kept Cupid alive:
+    /// quit once nothing does.
+    private var quitWhenNothingLeft = false
+    private var nothingLeftCheckRunning = false
 
     init(paths: Paths, autoLaunch: Bool) {
         self.paths = paths
@@ -161,9 +165,12 @@ final class AppModel: ObservableObject {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 if self.windowIsVisible() {
+                    self.quitWhenNothingLeft = false
                     self.refresh()
                 } else if self.watchedGame != nil {
                     self.checkGameStillRunning()
+                } else if self.quitWhenNothingLeft {
+                    self.checkNothingLeftToWatch()
                 }
             }
         }
@@ -673,6 +680,55 @@ final class AppModel: ObservableObject {
                 // Something may have changed meanwhile (window shown from the Dock, game restarted).
                 guard !self.windowIsVisible(), self.watchedGame == nil, !self.busy else { self.refresh(); return }
                 Logs.append(paths, "app: quitting with the game")
+                NSApp.terminate(nil)
+            }
+        }
+    }
+
+    // MARK: closing the window
+
+    /// The red close button quits Cupid unless Heartopia is running (Cupid stays to quit with
+    /// it, or to show the window on a crash), TapTap is open (launcher or installer), or a step
+    /// is running (closing must not end it).
+    nonisolated static func shouldQuitOnWindowClose(gameRunning: Bool, taptapRunning: Bool,
+                                                    operationRunning: Bool) -> Bool {
+        !gameRunning && !taptapRunning && !operationRunning
+    }
+
+    /// Called when the last window closes. The process list is checked once for the game,
+    /// TapTap and its installer; a game the model hasn't seen yet (started since the last
+    /// refresh) is adopted by a refresh so Cupid watches it.
+    func shouldQuitOnWindowClose() -> Bool {
+        if watchedGame != nil { return false }
+        if busy { quitWhenNothingLeft = !previewing; return false }
+        if previewing { return true }
+        let snapshot = SessionSnapshot.take(paths)
+        let gameRunning = snapshot.game != nil
+        let taptapRunning = !snapshot.launcher.isEmpty || !snapshot.installer.isEmpty
+        if gameRunning { refresh() }
+        quitWhenNothingLeft = !gameRunning && taptapRunning
+        return Self.shouldQuitOnWindowClose(gameRunning: gameRunning, taptapRunning: taptapRunning,
+                                            operationRunning: false)
+    }
+
+    /// The window was closed while TapTap or a step was running: quit once no game, TapTap or
+    /// step is left.
+    /// A game that appears meanwhile is adopted and the quit-with-the-game rule takes over.
+    private func checkNothingLeftToWatch() {
+        guard !nothingLeftCheckRunning, !refreshing, !previewing else { return }
+        nothingLeftCheckRunning = true
+        let paths = paths
+        Task.detached(priority: .utility) {
+            let snapshot = SessionSnapshot.take(paths)
+            let gameRunning = snapshot.game != nil
+            let taptapRunning = !snapshot.launcher.isEmpty || !snapshot.installer.isEmpty
+            await MainActor.run {
+                self.nothingLeftCheckRunning = false
+                guard self.quitWhenNothingLeft, !self.windowIsVisible(), self.watchedGame == nil else { return }
+                if gameRunning { self.quitWhenNothingLeft = false; self.refresh(); return }
+                guard Self.shouldQuitOnWindowClose(gameRunning: false, taptapRunning: taptapRunning,
+                                                   operationRunning: self.busy) else { return }
+                Logs.append(paths, "app: quitting; nothing left to watch")
                 NSApp.terminate(nil)
             }
         }
