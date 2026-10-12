@@ -39,7 +39,7 @@ adopt an existing one rather than rebuild it.
 
 ## Runtime (verified)
 
-- Source: Cupid's own runtime (`cupid-20261012.5`), built from pinned sources by
+- Source: Cupid's own runtime (`cupid-20261012.6`), built from pinned sources by
   `scripts/runtime/` (Recall's pipeline, adapted) with Recall's Wine and DXMT patches
   (`patches/recall/`), Cupid's Wine patches (`patches/cupid/`), FFmpeg, and GStreamer. The app
   bundles `runtime.tar.gz` with `runtime-archive.json` (version, sha256, minimum macOS);

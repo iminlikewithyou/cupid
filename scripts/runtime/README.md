@@ -11,7 +11,8 @@ copies of Recall's release pipeline, adapted for Cupid:
 - Cupid's own Wine patches are in `../../patches/cupid/` (from `cupid-20261012.4`:
   the Mac driver's Dock identity and native fullscreen Space; from `cupid-20261012.5`: the
   normal-level fullscreen mode, shareable source-reader textures for Unity's video player and a
-  minimal `Windows.System.DispatcherQueue`), applied after Recall's.
+  minimal `Windows.System.DispatcherQueue`; from `cupid-20261012.6`: the normal-level mode hides the
+  menu bar and Dock again when the game is re-activated), applied after Recall's.
 - `config/dxmt-source60-1200.conf` is Recall's renderer profile, which the assembler installs
   as the runtime's `config/dxmt.conf` (identical to Recall 1.3.0's).
 

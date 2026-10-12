@@ -8,7 +8,7 @@ contributors). That grant covers only Cupid's own code. Everything below keeps i
 
 | What | Where in the app | License | Corresponding source |
 |---|---|---|---|
-| Cupid's Wine runtime (`runtime.tar.gz`, version `cupid-20261012.5`, sha256 `4637c85f…cf249f7a19`), built by Cupid from pinned upstream sources with `scripts/runtime/` (derived from Recall's pipeline) | `Contents/Resources/runtime.tar.gz`, with `runtime-archive.json` naming its version and sha256 | Per component, see below; Cupid's own code Apache-2.0 (`Licenses/PROJECT-APACHE-2.0`, `Licenses/PROJECT-NOTICE`, which credits Recall); Recall's NOTICE and licence also ship (`Licenses/Recall-NOTICE`, `Licenses/Recall-LICENSE-Apache-2.0`) | this repository (`scripts/runtime/`, `patches/recall/`, `patches/cupid/`) and the pinned upstream sources below |
+| Cupid's Wine runtime (`runtime.tar.gz`, version `cupid-20261012.6`, sha256 `8acddc1d…f9d3bc258c`), built by Cupid from pinned upstream sources with `scripts/runtime/` (derived from Recall's pipeline) | `Contents/Resources/runtime.tar.gz`, with `runtime-archive.json` naming its version and sha256 | Per component, see below; Cupid's own code Apache-2.0 (`Licenses/PROJECT-APACHE-2.0`, `Licenses/PROJECT-NOTICE`, which credits Recall); Recall's NOTICE and licence also ship (`Licenses/Recall-NOTICE`, `Licenses/Recall-LICENSE-Apache-2.0`) | this repository (`scripts/runtime/`, `patches/recall/`, `patches/cupid/`) and the pinned upstream sources below |
 | License texts of everything in the runtime | `Contents/Resources/Licenses/` (the runtime's own `licenses/` tree, copied verbatim) | n/a | n/a |
 | `dxmt.conf` template | `Contents/Resources/config/dxmt.conf` | Cupid, Apache-2.0 | this repository |
 
