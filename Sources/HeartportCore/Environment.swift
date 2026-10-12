@@ -2,10 +2,10 @@ import Foundation
 
 /// How the game's fullscreen window sits on the Mac (Settings "Fullscreen").
 public enum FullscreenMode: String, CaseIterable, Sendable, Codable {
-    /// Covers the whole panel, beside the camera too, above notification banners (the default).
+    /// Covers the whole panel, beside the camera too, above notification banners.
     case fill
     /// Covers the whole panel at the normal window level: notification banners appear over it
-    /// (WINEMAC_FULLSCREEN_NORMAL_LEVEL).
+    /// (WINEMAC_FULLSCREEN_NORMAL_LEVEL). The default.
     case fillNotifications
     /// Its own fullscreen Space, like a Mac game (WINEMAC_NATIVE_FULLSCREEN).
     case space
@@ -37,7 +37,7 @@ public enum LaunchEnvironment {
         public var fullscreen: FullscreenMode
 
         public init(hud: Bool = false, dxmtInfoLog: Bool = false, wineDebug: String? = nil, inputStatsPrefix: URL? = nil,
-                    fullscreen: FullscreenMode = .fill) {
+                    fullscreen: FullscreenMode = .fillNotifications) {
             self.hud = hud
             self.dxmtInfoLog = dxmtInfoLog
             self.wineDebug = wineDebug

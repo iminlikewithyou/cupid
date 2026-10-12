@@ -11,7 +11,7 @@ public struct AppState: Codable, Sendable, Equatable {
     public var prefixRuntime: String?
     /// Metal HUD on for `play` (menu toggle).
     public var hud: Bool?
-    /// How the game fills the screen: a `FullscreenMode` raw value; "fill" when absent.
+    /// How the game fills the screen: a `FullscreenMode` raw value; "fillNotifications" when absent.
     public var fullscreenMode: String?
     /// Superseded by `fullscreenMode`; read only (true = "space"), cleared by `setFullscreen`.
     public var nativeFullscreen: Bool?
@@ -32,7 +32,7 @@ public struct AppState: Codable, Sendable, Equatable {
 
     /// The saved fullscreen mode.
     public var fullscreen: FullscreenMode {
-        fullscreenMode.flatMap(FullscreenMode.init(rawValue:)) ?? (nativeFullscreen == true ? .space : .fill)
+        fullscreenMode.flatMap(FullscreenMode.init(rawValue:)) ?? (nativeFullscreen == true ? .space : .fillNotifications)
     }
 
     public mutating func setFullscreen(_ mode: FullscreenMode) {

@@ -152,7 +152,7 @@ struct Preview {
         r.game.state = "installed"
         r.game.version = "0.5.5"
         r.game.build = "5847751"
-        r.state.fullscreenMode = FullscreenMode.fill.rawValue
+        r.state.fullscreenMode = FullscreenMode.fillNotifications.rawValue
         r.state.lastLaunch = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3 * 3600))
         return r
     }

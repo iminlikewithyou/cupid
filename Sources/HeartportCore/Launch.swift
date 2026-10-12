@@ -12,7 +12,7 @@ public struct GameLauncher: Sendable {
         /// The "Fullscreen" setting.
         public var fullscreen: FullscreenMode
         public init(hud: Bool = false, dxmtInfoLog: Bool? = nil, wineDebug: String? = nil,
-                    inputStats: Bool = false, windowTimeout: TimeInterval = 120, fullscreen: FullscreenMode = .fill) {
+                    inputStats: Bool = false, windowTimeout: TimeInterval = 120, fullscreen: FullscreenMode = .fillNotifications) {
             self.hud = hud; self.dxmtInfoLog = dxmtInfoLog; self.wineDebug = wineDebug
             self.inputStats = inputStats; self.windowTimeout = windowTimeout
             self.fullscreen = fullscreen

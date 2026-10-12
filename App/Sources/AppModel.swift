@@ -47,7 +47,7 @@ final class AppModel: ObservableObject {
     /// The last informational result (repair summary, "TapTap is not installed yet", ...).
     @Published var notice: String?
     @Published private(set) var hud = false
-    @Published private(set) var fullscreen = FullscreenMode.fill
+    @Published private(set) var fullscreen = FullscreenMode.fillNotifications
     /// Seconds left in the TapTap download, once the rate is known.
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
@@ -138,7 +138,7 @@ final class AppModel: ObservableObject {
         notice = preview.notice
         downloadETA = preview.eta
         hud = preview.report?.state.hud ?? false
-        fullscreen = preview.report?.state.fullscreen ?? .fill
+        fullscreen = preview.report?.state.fullscreen ?? .fillNotifications
         previewHasLogs = preview.hasLogs
         freeBytes = preview.freeBytes
         welcome = preview.welcome

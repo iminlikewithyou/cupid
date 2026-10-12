@@ -33,6 +33,7 @@ final class EnvironmentTests: XCTestCase {
             "WINEMAC_MOUSELOOK": "xdt.exe", "WINE_GAME_MODE": "xdt.exe",
             "WINE_NO_DOCK_ICON": "TapTapGlobal.exe",
             "WINEMAC_APP_NAME": "Heartopia",
+            "WINEMAC_FULLSCREEN_NORMAL_LEVEL": "xdt.exe",
             "GST_PLUGIN_SYSTEM_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_PLUGIN_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_REGISTRY_1_0": "\(data)/cache/gstreamer-registry.bin",
@@ -59,13 +60,13 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(env["WINEMAC_APP_ICON"], icon.path)
         XCTAssertEqual(env["WINEMAC_APP_NAME"], "Heartopia")
         XCTAssertNil(env["WINEMAC_NATIVE_FULLSCREEN"])
-        XCTAssertNil(env["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
+        XCTAssertEqual(env["WINEMAC_FULLSCREEN_NORMAL_LEVEL"], "xdt.exe")   // the default mode
         // An inherited value never survives (WINE* is stripped), with or without the icon.
         let inherited = ["WINEMAC_APP_ICON": "/tmp/x.icns", "WINEMAC_APP_NAME": "x", "WINEMAC_NATIVE_FULLSCREEN": "other.exe",
                          "WINEMAC_FULLSCREEN_NORMAL_LEVEL": "other.exe"]
         XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_APP_ICON"], icon.path)
         XCTAssertNil(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"])
-        XCTAssertNil(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
+        XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"], "xdt.exe")
         XCTAssertNil(LaunchEnvironment.build(paths: paths, inherited: inherited)["WINEMAC_APP_ICON"])
     }
 
@@ -75,7 +76,7 @@ final class EnvironmentTests: XCTestCase {
         func env(_ mode: FullscreenMode) -> [String: String] {
             LaunchEnvironment.build(paths: p, options: .init(fullscreen: mode), inherited: inherited)
         }
-        XCTAssertEqual(LaunchEnvironment.Options().fullscreen, .fill)
+        XCTAssertEqual(LaunchEnvironment.Options().fullscreen, .fillNotifications)
         XCTAssertNil(env(.fill)["WINEMAC_NATIVE_FULLSCREEN"])
         XCTAssertNil(env(.fill)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
         XCTAssertNil(env(.fillNotifications)["WINEMAC_NATIVE_FULLSCREEN"])

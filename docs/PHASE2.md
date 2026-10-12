@@ -119,7 +119,7 @@ WINEMAC_MOUSELOOK=xdt.exe  WINE_GAME_MODE=xdt.exe
 WINE_NO_DOCK_ICON=TapTapGlobal.exe
 WINEMAC_APP_NAME=Heartopia
 WINEMAC_NATIVE_FULLSCREEN=xdt.exe  (only with Fullscreen set to "Own Space")
-WINEMAC_FULLSCREEN_NORMAL_LEVEL=xdt.exe  (only with Fullscreen set to "Fill the screen, show notifications")
+WINEMAC_FULLSCREEN_NORMAL_LEVEL=xdt.exe  (with Fullscreen set to "Fill the screen, show notifications", the default)
 WINEMAC_APP_ICON=<rt>/lib/wine/game-mode/xdt.app/Contents/Resources/Heartopia.icns  (only if it exists)
 HOME=<data>/home  USER=player  TMPDIR=<data>/tmp
 ```
@@ -131,12 +131,13 @@ the game's fullscreen window (borderless, covering the screen) gets its own full
 stays covering the panel at the normal window level. `GameModeBundle` writes the icon when it creates `xdt.app`. The name and
 icon are set for every Wine process; only a process that shows a Dock icon is renamed (TapTap's
 launcher has none, `WINE_NO_DOCK_ICON`). The fullscreen variables come from one three-way setting
-(state.json `fullscreenMode`, Settings "Fullscreen", `play --fullscreen fill|notifications|space`
-for one launch; an older state.json's `nativeFullscreen: true` reads as "space"):
-- `fill` (default, neither variable): the game covers the whole panel, beside the notch too, and
-  floats above notification banners.
-- `fillNotifications` (`WINEMAC_FULLSCREEN_NORMAL_LEVEL`): the whole panel at the normal window
-  level, so notification banners appear over the game.
+(state.json `fullscreenMode`, Settings "Fullscreen", `play --fullscreen notifications|fill|space`
+for one launch; a missing `fullscreenMode` reads as `fillNotifications`, except an older
+state.json's `nativeFullscreen: true`, which reads as "space"):
+- `fillNotifications` (default, `WINEMAC_FULLSCREEN_NORMAL_LEVEL`): the whole panel at the normal
+  window level, beside the notch too, so notification banners appear over the game.
+- `fill` (neither variable): the game covers the whole panel, beside the notch too, and floats
+  above notification banners.
 - `space` (`WINEMAC_NATIVE_FULLSCREEN`): its own fullscreen Space; the game gets 1728x1084 with a
   black strip beside the notch, but notifications, Mission Control, and Cmd-Tab behave as for a
   Mac game.
