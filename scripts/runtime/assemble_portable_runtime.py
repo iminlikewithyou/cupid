@@ -27,6 +27,15 @@ TOOLCHAINS=ROOT.parent/'mactopia-runtime/toolchains'
 ARTIFACTS=ROOT.parent/'mactopia-runtime/artifacts'
 COMPILER='llvm-mingw-20251216-ucrt-macos-universal'
 NVNGX='lib/wine/x86_64-windows/nvngx.dll'
+# GStreamer plugins winegstreamer's Media Foundation path needs (heartport-20261012.3). Plugins are
+# dlopened, so the dependency walker cannot find them; they are listed here and their own links
+# pull in GLib, the GStreamer libraries and FFmpeg. Element names: decodebin (playback) with
+# typefind (coreelements, typefindfunctions); qtdemux (isomp4); h264parse (videoparsersbad);
+# aacparse (audioparsers); avdec_h264/avdec_aac (libav); capsfilter (coreelements);
+# audioconvert, audioresample, videoconvert (videoconvertscale); deinterlace; videoflip
+# (videofilter).
+GSTREAMER_PLUGINS=['coreelements','typefindfunctions','playback','isomp4','videoparsersbad','audioparsers',
+                   'libav','audioconvert','audioresample','videoconvertscale','deinterlace','videofilter']
 APPLE_SHA='5131e631eee8b542eadf48f4df9fd662d9aeeb59139137e0e6e14047dc434995'
 MONO_SOURCE_SHA='128e335396689e466dff5e1aa0770a714dbe3d16397fc4ddbb8a80999c67323b'
 
@@ -128,6 +137,10 @@ def assemble(work,version,identity,original,toolchains,output):
     # Resolve only native libraries referenced by this runtime, plus four
     # explicitly dlopened dependencies (SDL2 for winebus's controllers, 1.2).
     # No unused graphical backend is copied.
+    plugins=work/'clean-deps/lib/gstreamer-1.0'
+    if plugins.is_dir():
+        for name in GSTREAMER_PLUGINS:
+            copy(plugins/('libgst'+name+'.dylib'),dest/'lib/gstreamer-1.0'/('libgst'+name+'.dylib'))
     available={p.name:p for p in (work/'clean-deps/lib').glob('*.dylib')}
     available['libfreetype.6.dylib']=work/'deps/lib/libfreetype.6.dylib'
     native=[p for p in dest.rglob('*') if macho(p) and p!=dest/'lib/external/libd3dshared.dylib']
@@ -163,9 +176,11 @@ def assemble(work,version,identity,original,toolchains,output):
             elif name in chosen:run('install_name_tool','-change',dep,'@rpath/'+name,p,stderr=subprocess.DEVNULL)
             elif name in ('ntdll.so','win32u.so'):
                 run('install_name_tool','-change',dep,'@rpath/'+name,p,stderr=subprocess.DEVNULL)
+            elif name==p.name and p.parent==dest/'lib/gstreamer-1.0':pass  # a plugin's own id, set below
             else:raise ValueError('Unresolved non-system dependency: '+dep)
         if p.suffix=='.dylib':run('install_name_tool','-id','@rpath/'+p.name,p,stderr=subprocess.DEVNULL)
         desired=['@loader_path']
+        if p.parent==dest/'lib/gstreamer-1.0':desired+=['@loader_path/..']
         if p.parent==dest/'bin':desired+=['@loader_path/../lib','@loader_path/../lib/wine/x86_64-unix']
         elif (dest/'lib/wine') in p.parents:desired+=['@loader_path/../..']
         old=rpaths(p)
