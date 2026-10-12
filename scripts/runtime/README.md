@@ -57,11 +57,47 @@ The signing certificate is made once with
 ### Metal shaders
 
 DXMT compiles four Metal shaders. Xcode 26 installs the Metal compiler as a separate component
-(`xcodebuild -downloadComponent MetalToolchain`). With it installed, run the DXMT step with
+(`xcodebuild -downloadComponent MetalToolchain`; on a fresh Xcode first `sudo xcodebuild
+-runFirstLaunch`). Run the DXMT step with
 `METAL_DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` so only the Metal tools come
-from Xcode while C/C++ stays on the Command Line Tools. Without it, `metal_cache_from_runtime.py`
+from Xcode while C/C++ stays on the Command Line Tools. With Apple metal 32023.883 the compiled
+`.air` and `.metallib` files are byte-identical to the ones in Recall's `phase2-20261007.3`.
+
+Fallback without the Metal toolchain: `metal_cache_from_runtime.py RUNTIME DXMT_SOURCE CACHE`
 fills a `DXMT_METAL_CACHE` folder from the compiled shaders embedded in a runtime built from the
-same shader sources (Recall's `phase2-20261007.3`), and the build reuses them.
+same shader sources (e.g. Recall's `phase2-20261007.3`), and the build reuses them (iteration 1
+was built that way).
+
+### FFmpeg
+
+`build_portable_dependencies.py` builds FFmpeg **7.1.5**
+(https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz, sha256
+`de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f`; ffmpeg.org publishes GPG
+signatures only, the sha256 is the one Homebrew's `ffmpeg@7` formula pins for the same URL) for
+Wine's `winedmo`. LGPL 2.1 or later; configure:
+
+```text
+--prefix=<clean-deps> --enable-shared --disable-static --arch=x86_64 --target-os=darwin
+--cc='/usr/bin/clang -arch x86_64' --cxx='/usr/bin/clang++ -arch x86_64'
+--extra-cflags='-O2 -g0 -ffile-prefix-map=<workspace>=/build/heartport' --extra-ldflags=-L<clean-deps>/lib
+--pkg-config=false --disable-autodetect --enable-zlib --disable-x86asm --disable-doc
+--disable-programs --enable-ffprobe --disable-avdevice --disable-avfilter --disable-postproc
+--disable-network --disable-everything --enable-protocol=file
+--enable-demuxer=mov,avi,wav,asf,mpegps,mpegvideo,mp3,aac,h264,hevc
+--enable-parser=h264,hevc,aac,mpegaudio,mpegvideo
+--enable-decoder=h264,hevc,aac,mp3,mp3float
+--enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,null --enable-swscale --enable-swresample
+```
+
+No `--enable-gpl`, no `--enable-nonfree`, no external codec libraries (only the system zlib),
+no VideoToolbox, no x86 assembly (no nasm in the toolchain; winedmo only demuxes, so decode
+speed does not matter today). The workspace path is replaced by `/build/heartport` in the
+embedded configure line. `ffprobe` stays in `clean-deps/bin` for checks and is never shipped.
+Wine is configured with `FFMPEG_CFLAGS=-I<clean-deps>/include` and
+`FFMPEG_LIBS=-L<clean-deps>/lib -lavutil -lavformat -lavcodec`; `winedmo.so` links
+`@rpath/libavformat.61.dylib`, `libavcodec.61.dylib` and `libavutil.59.dylib`, which the
+assembler copies to `lib/` (swscale and swresample are built but nothing links them, so they are
+not shipped). Licences: `licenses/native/ffmpeg/{LICENSE.md,COPYING.LGPLv2.1}`.
 
 ## Changes from Recall's scripts
 
@@ -70,9 +106,15 @@ All scripts:
 - `-ffile-prefix-map` maps the workspace to `/build/heartport` (Recall: `/build/overwatch-2-mac`).
 - `--jobs` accepts 1–16 (Recall: 1–4).
 
-`build_portable_runtime.py`: patches from `patches/recall/`.
+`build_portable_runtime.py`: patches from `patches/recall/`; Wine configured with FFmpeg
+(`HAVE_FFMPEG` required in config.h); a marker in the Wine source records the applied patches,
+so a rerun on a patched tree skips patching (the patches overlap, and Recall's `apply_once` stops
+on such a tree).
 
-`build_portable_dxmt.py`: patches from `patches/recall/`; the wrapper from
+`build_portable_dependencies.py`: FFmpeg (see above); `--only ffmpeg`.
+
+`build_portable_dxmt.py`: the source is reset to the base commit and cleaned before patching
+(reruns work); patches from `patches/recall/`; the wrapper from
 `scripts/runtime/portable_metal.py`; `--signing` (default `../mactopia-runtime/signing/heartport-nvngx`);
 `DEVELOPER_DIR` and `SDKROOT` default to the Command Line Tools and the macOS 26.5 SDK, as for
 Wine; the build proof records the Metal developer directory and the cache's origin.

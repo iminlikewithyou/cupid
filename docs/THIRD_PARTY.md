@@ -53,6 +53,15 @@ components as the Recall runtime above, from the same pinned sources, with Heart
 `LICENSE` and a NOTICE crediting Recall in `licenses/` in place of Recall's, nvngx.dll signed
 with Heartport's own certificate, and no `Overwatch.app`.
 
+From `heartport-20261012.2` the runtime also carries **FFmpeg 7.1.5** (libavformat, libavcodec,
+libavutil in `lib/`), built from source (https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz, sha256
+`de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f`) under the **LGPL 2.1 or
+later** (`licenses/native/ffmpeg/LICENSE.md`, `COPYING.LGPLv2.1`): no `--enable-gpl`, no
+`--enable-nonfree`, no external libraries but the system zlib; only the mov/mp4, avi, wav, asf,
+mpeg, mp3, aac, h264 and hevc demuxers, the h264, hevc, aac and mp3 decoders and the
+mp4-to-Annex-B filters. The exact configure flags are in `scripts/runtime/README.md`; the
+corresponding source is the tarball above. Wine's winedmo links it dynamically.
+
 ## Downloaded at setup, not bundled
 
 - **TapTap Global PC client** (TapTap / XD). Heartport downloads the official installer from
