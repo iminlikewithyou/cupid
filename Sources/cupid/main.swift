@@ -3,7 +3,7 @@ import Foundation
 import CupidCore
 
 let usage = """
-cupid: Heartopia on Recall's Wine + Rosetta + DXMT runtime
+cupid: Heartopia on Cupid's Wine + DXMT runtime, through Rosetta 2
 
 USAGE: cupid [--data DIR] <command> [options]
 
@@ -23,6 +23,9 @@ Commands:
   verify-runtime [--archive PATH | DIR]      Verify a runtime folder or runtime.tar.gz
 
 The data folder is ~/Library/Application Support/Cupid (override: --data or CUPID_DATA_ROOT).
+setup installs the runtime bundled with the app (or --archive PATH, or CUPID_RUNTIME_ARCHIVE).
+Without one it falls back to Recall 1.3.0's prebuilt runtime, downloaded from Recall's DMG,
+which lacks Cupid's patches and video support.
 """
 
 let valued: Set<String> = ["data", "step", "archive", "wait", "lines", "name", "wine-debug", "fullscreen"]
@@ -129,7 +132,7 @@ struct CLI {
         } else if let found = RuntimeInstaller.locateArchive(paths: paths) {
             archive = found
         } else {
-            say("No bundled runtime.tar.gz found; fetching it from Recall 1.3.0's DMG")
+            say("No bundled runtime.tar.gz found; falling back to Recall 1.3.0's prebuilt runtime, fetched from its DMG (no Cupid patches, no video)")
             archive = try installer.fetchArchiveFromDMG(progress: progressPrinter("Recall-1.3.0.dmg"), log: say)
         }
         say("Installing the runtime from \(archive.path)")
