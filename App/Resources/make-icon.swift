@@ -1,7 +1,6 @@
 // make-icon.swift OUT.iconset: draws Cupid's icon at every iconset size: a rounded square on
-// Apple's macOS icon grid with a coral-pink to warm-red vertical gradient, a white heart with a
-// soft inner shadow, and a short white "port" bar beneath it. Original drawing; no game or
-// TapTap artwork.
+// Apple's macOS icon grid with a bubblegum-pink vertical gradient and a white heart, tilted a little
+// to the left, with a soft inner shadow. Original drawing; no game or TapTap artwork.
 import AppKit
 
 let out = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "AppIcon.iconset")
@@ -44,52 +43,54 @@ func render(_ px: Int) -> Data {
     drop.shadowOffset = NSSize(width: 0, height: -10 * u)
     drop.shadowBlurRadius = 20 * u
     drop.set()
-    srgb(0.93, 0.30, 0.38).setFill()
+    srgb(0.96, 0.36, 0.60).setFill()
     square.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    // Body: coral pink at the top to warm red at the bottom, with a faint top sheen.
-    NSGradient(starting: srgb(1.00, 0.53, 0.58), ending: srgb(0.88, 0.19, 0.27))!.draw(in: square, angle: -90)
+    // Body: bubblegum pink at the top to a deep rose at the bottom, with a faint top sheen.
+    NSGradient(starting: srgb(1.00, 0.56, 0.74), ending: srgb(0.92, 0.22, 0.50))!.draw(in: square, angle: -90)
     NSGraphicsContext.saveGraphicsState()
     square.addClip()
-    NSGradient(starting: NSColor(white: 1, alpha: 0.20), ending: NSColor(white: 1, alpha: 0))!
+    NSGradient(starting: NSColor(white: 1, alpha: 0.22), ending: NSColor(white: 1, alpha: 0))!
         .draw(fromCenter: NSPoint(x: body.midX, y: body.maxY), radius: 0,
               toCenter: NSPoint(x: body.midX, y: body.maxY), radius: body.width * 0.75, options: [])
     NSGraphicsContext.restoreGraphicsState()
 
-    // Heart (56% of the body's width) and the port bar beneath it, centered as one group.
-    let hw = body.width * 0.56
+    // Heart (60% of the body's width), tilted 10 degrees counter-clockwise about its center.
+    // The tilt swings its lobes left and they outweigh its point, so the box sits a little right
+    // of and below center to look centered.
+    let hw = body.width * 0.60
     let hh = hw * 0.90
     let visible = hh * 0.94 // the curves top out a little below the box
-    let gap = body.width * 0.055
-    let barW = body.width * 0.20, barH = max(1, body.width * 0.045)
-    let group = visible + gap + barH
-    let groupBottom = body.midY - group / 2 + body.width * 0.01 // a hair above center, optically
-    let barRect = NSRect(x: body.midX - barW / 2, y: groupBottom, width: barW, height: barH)
-    let heartRect = NSRect(x: body.midX - hw / 2, y: groupBottom + barH + gap, width: hw, height: hh)
+    let heartRect = NSRect(x: body.midX - hw / 2 + body.width * 0.016, y: body.midY - visible / 2 + body.width * 0.004,
+                           width: hw, height: hh)
+    let center = NSPoint(x: heartRect.midX, y: heartRect.minY + visible / 2)
+    var tilt = AffineTransform(translationByX: center.x, byY: center.y)
+    tilt.rotate(byDegrees: 10)
+    tilt.translate(x: -center.x, y: -center.y)
     let h = heart(in: heartRect)
+    h.transform(using: tilt)
 
-    // Soft shadow under both shapes.
+    // Soft shadow under the heart.
     NSGraphicsContext.saveGraphicsState()
     let lift = NSShadow()
-    lift.shadowColor = srgb(0.45, 0.02, 0.08, 0.30)
+    lift.shadowColor = srgb(0.50, 0.05, 0.25, 0.32)
     lift.shadowOffset = NSSize(width: 0, height: -8 * u)
     lift.shadowBlurRadius = 18 * u
     lift.set()
     NSColor.white.setFill()
     h.fill()
-    NSBezierPath(roundedRect: barRect, xRadius: barH / 2, yRadius: barH / 2).fill()
     NSGraphicsContext.restoreGraphicsState()
 
     // Heart face: white to a whisper of pink, then an inner shadow along its upper edge.
-    NSGradient(starting: NSColor.white, ending: srgb(1.0, 0.93, 0.94))!.draw(in: h, angle: -90)
+    NSGradient(starting: NSColor.white, ending: srgb(1.0, 0.94, 0.96))!.draw(in: h, angle: -90)
     NSGraphicsContext.saveGraphicsState()
     h.addClip()
-    let ring = NSBezierPath(rect: heartRect.insetBy(dx: -hw, dy: -hw))
+    let ring = NSBezierPath(rect: body.insetBy(dx: -hw, dy: -hw))
     ring.append(h)
     ring.windingRule = .evenOdd
     let inner = NSShadow()
-    inner.shadowColor = srgb(0.70, 0.10, 0.18, 0.30)
+    inner.shadowColor = srgb(0.80, 0.18, 0.45, 0.32)
     inner.shadowOffset = NSSize(width: 0, height: -6 * u)
     inner.shadowBlurRadius = 14 * u
     inner.set()

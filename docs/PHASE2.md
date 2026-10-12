@@ -253,7 +253,7 @@ reference implementation and may be re-implemented, not copied (PolyForm license
   Reset Graphics…, Show Logs, Repair…, Uninstall….
 - Settings window: Fullscreen (three modes), Performance overlay (Metal HUD), Data folder.
   Persisted in `state.json`.
-- Holding Option while opening the app skips the auto-launch and shows the window. The app
+- Holding Option while opening the app skips the auto-launch and opens to the launcher. The app
   quits when the game exits normally while its window is hidden; a crash shows the window.
 
 ## Tests

@@ -5,15 +5,15 @@ import SwiftUI
 // The setup window: a hero header, a row of step dots, one card for the current step, and
 // inline callouts for failures and notices. Presentation only; every action goes to AppModel.
 
-/// Cupid's colours, taken from the app icon.
+/// Cupid's colors, taken from the app icon.
 enum Brand {
-    /// The icon's coral pink, used for the hero wash.
-    static let pink = Color(nsColor: NSColor(srgbRed: 1.00, green: 0.47, blue: 0.56, alpha: 1))
-    /// The controls' accent: a warm red that keeps white text legible, lifted a little in dark mode.
+    /// The icon's bubblegum pink, used for the hero wash.
+    static let pink = Color(nsColor: NSColor(srgbRed: 0.97, green: 0.42, blue: 0.64, alpha: 1))
+    /// The controls' accent: a deeper rose that keeps white text legible, lifted a little in dark mode.
     static let accent = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.98, green: 0.38, blue: 0.47, alpha: 1)
-            : NSColor(srgbRed: 0.89, green: 0.24, blue: 0.35, alpha: 1)
+            ? NSColor(srgbRed: 0.96, green: 0.40, blue: 0.62, alpha: 1)
+            : NSColor(srgbRed: 0.89, green: 0.24, blue: 0.51, alpha: 1)
     })
 }
 
@@ -204,15 +204,12 @@ private struct WelcomeView: View {
                 .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
-                Text("Welcome to Cupid")
+                Text("Cupid is here")
                     .font(.system(size: 34, weight: .bold))
-                Text("Heartopia ported to Mac")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
             }
             .padding(.top, 24)
             .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
-            Text("Cupid sets up everything Heartopia needs on this Mac in a few steps. Two of them need a few clicks from you; the rest is automatic.")
+            Text("Setup takes a few steps. Cupid will handle most of the work, but we'll need a few clicks along the way.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
@@ -225,7 +222,7 @@ private struct WelcomeView: View {
                 } else {
                     Fact("internaldrive", "About \(SetupSpace.totalGB) GB of free space")
                 }
-                Fact("lock.shield", "Nothing else on your Mac changes")
+                Fact("trash", "Uninstall anytime from the Cupid menu")
             }
             .padding(.top, 32)
             .entrance(appeared, delay: 0.65, reduceMotion: reduceMotion)
@@ -275,7 +272,7 @@ private struct AllSetView: View {
             }
             .padding(.top, 24)
             .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
-            Text("From now on, opening Cupid starts Heartopia. Hold Option while opening it to reach Settings instead.")
+            Text("From now on, opening Cupid starts Heartopia. Opening it while holding Option opens to the Cupid launcher instead.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
@@ -831,7 +828,7 @@ struct SettingsView: View {
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Hold Option while opening Cupid to reach this window without starting the game.")
+                    Text("Opening Cupid while holding Option opens to the Cupid launcher without starting the game.")
                         .fixedSize(horizontal: false, vertical: true)
                     if let version = model.report?.game.version {
                         Text("Heartopia \(version)")
