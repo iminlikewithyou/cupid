@@ -1,16 +1,16 @@
 # Third-party components
 
-Heartport's own code (the `HeartportCore` library, the `heartport` CLI, the app shell, scripts
-and documentation) is licensed under the Apache License 2.0 (`LICENSE`, copyright 2026 Heartport
-contributors). That grant covers only Heartport's own code. Everything below keeps its own license.
+Cupid's own code (the `CupidCore` library, the `cupid` CLI, the app shell, scripts
+and documentation) is licensed under the Apache License 2.0 (`LICENSE`, copyright 2026 Cupid
+contributors). That grant covers only Cupid's own code. Everything below keeps its own license.
 
-## Bundled in Heartport.app
+## Bundled in Cupid.app
 
 | What | Where in the app | License | Corresponding source |
 |---|---|---|---|
 | Recall 1.3.0 Wine runtime (`runtime.tar.gz`, sha256 `66ce2eab…3f92c34`), shipped byte-for-byte as Recall publishes it inside `Recall-1.3.0.dmg` | `Contents/Resources/runtime.tar.gz` | Per component, see below; Recall's own code Apache-2.0 (`Licenses/Recall-NOTICE`, `Licenses/Recall-LICENSE-Apache-2.0`) | https://github.com/AsherJN/recall (tag `v1.3.0`; release https://github.com/AsherJN/recall/releases/tag/v1.3.0). Its `docs/SOURCES.json` pins every input listed below. |
 | License texts of everything in the runtime | `Contents/Resources/Licenses/` (the runtime's own `licenses/` tree, copied verbatim) | n/a | n/a |
-| `dxmt.conf` template | `Contents/Resources/config/dxmt.conf` | Heartport, Apache-2.0 | this repository |
+| `dxmt.conf` template | `Contents/Resources/config/dxmt.conf` | Cupid, Apache-2.0 | this repository |
 
 ### Inside the runtime (Recall 1.3.0's documented inputs)
 
@@ -34,10 +34,10 @@ contributors). That grant covers only Heartport's own code. Everything below kee
 | Soju runtime build recipe (referenced, not vendored) | commit `3a350b32bf906dd2a509b18c642a5a2676de022a` | GPL-3.0 (`Licenses/Soju-GPL-3.0`) | https://github.com/BCD1210/soju |
 | Apple `libd3dshared.dylib` and support components | as shipped in Recall 1.3.0 | Apple's license (`Licenses/apple/License.rtf`, `Acknowledgements.rtf`, `Read Me.rtf`); proprietary, not covered by Apache-2.0 or the Wine/DXMT licenses | not open source |
 
-Heartport never modifies or re-signs any file of the runtime. On first run it extracts the
+Cupid never modifies or re-signs any file of the runtime. On first run it extracts the
 archive, verifies every file against the runtime's `runtime.json` (sha256 and size), and adds
 one generated file set, `lib/wine/game-mode/xdt.app` (a copy of the runtime's own Wine loader
-with a game Info.plist, identifier `app.heartport.heartopia`, ad hoc signed), so macOS Game
+with a game Info.plist, identifier `app.cupid.heartopia`, ad hoc signed), so macOS Game
 Mode can engage.
 
 Rosetta 2 is Apple's and is installed by the user from Apple; it is not bundled.
@@ -46,14 +46,14 @@ Rosetta 2 is Apple's and is installed by the user from Apple; it is not bundled.
 
 `scripts/runtime/` holds copies of Recall's runtime build pipeline (https://github.com/AsherJN/recall,
 commit `61a3a59`, Apache-2.0, Copyright 2026 Joshua Asher Nelson; its NOTICE is
-`scripts/runtime/RECALL-NOTICE`), modified for Heartport as listed in `scripts/runtime/README.md`,
+`scripts/runtime/RECALL-NOTICE`), modified for Cupid as listed in `scripts/runtime/README.md`,
 and `patches/recall/` holds Recall's Wine and DXMT patches unchanged (LGPL-2.1-or-later, as the
-code they patch). A runtime built with them (`heartport-*`) carries the same third-party
-components as the Recall runtime above, from the same pinned sources, with Heartport's
+code they patch). A runtime built with them (`cupid-*`) carries the same third-party
+components as the Recall runtime above, from the same pinned sources, with Cupid's
 `LICENSE` and a NOTICE crediting Recall in `licenses/` in place of Recall's, nvngx.dll signed
-with Heartport's own certificate, and no `Overwatch.app`.
+with Cupid's own certificate, and no `Overwatch.app`.
 
-From `heartport-20261012.2` the runtime also carries **FFmpeg 7.1.5** (libavformat, libavcodec,
+From `cupid-20261012.2` the runtime also carries **FFmpeg 7.1.5** (libavformat, libavcodec,
 libavutil in `lib/`), built from source (https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz, sha256
 `de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f`) under the **LGPL 2.1 or
 later** (`licenses/native/ffmpeg/LICENSE.md`, `COPYING.LGPLv2.1`): no `--enable-gpl`, no
@@ -62,7 +62,7 @@ mpeg, mp3, aac, h264 and hevc demuxers, the h264, hevc, aac and mp3 decoders and
 mp4-to-Annex-B filters. The exact configure flags are in `scripts/runtime/README.md`; the
 corresponding source is the tarball above. Wine's winedmo links it dynamically.
 
-From `heartport-20261012.3` the runtime also carries GStreamer for Wine's Media Foundation
+From `cupid-20261012.3` the runtime also carries GStreamer for Wine's Media Foundation
 decoders (winegstreamer), built from source with the flags in `scripts/runtime/README.md`:
 
 | Component | Version | License | Source (sha256-pinned) |
@@ -82,7 +82,7 @@ enabled), which gst-libav links.
 
 ## Downloaded at setup, not bundled
 
-- **TapTap Global PC client** (TapTap / XD). Heartport downloads the official installer from
+- **TapTap Global PC client** (TapTap / XD). Cupid downloads the official installer from
   `https://d.tap.io/pc/latest/coop-pc?jid=id231364` into the data folder, checks its size and
   sha256 against a pin, and runs it. The user accepts TapTap's terms in the installer window.
   Proprietary; governed by TapTap's terms.
@@ -90,10 +90,10 @@ enabled), which gst-libav links.
 ## Downloaded by the user, not bundled
 
 - **Heartopia** (XD). The user downloads it with the TapTap client into the Wine prefix
-  (`C:\TapTapGlobal\Apps\231364`). Proprietary; governed by XD's terms. Heartport does not
+  (`C:\TapTapGlobal\Apps\231364`). Proprietary; governed by XD's terms. Cupid does not
   modify the game files; it only sets registry preferences (graphics defaults) in the prefix.
 
 ## Not affiliated
 
-Heartport is an independent community project, not affiliated with or endorsed by XD, TapTap,
+Cupid is an independent community project, not affiliated with or endorsed by XD, TapTap,
 Apple, CodeWeavers or the Recall project. Product names are trademarks of their owners.
