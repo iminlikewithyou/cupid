@@ -1,5 +1,5 @@
 diff --git a/dlls/winemac.drv/cocoa_app.h b/dlls/winemac.drv/cocoa_app.h
-index 4da4676..8e1f360 100644
+index 4da4676..0e4ae30 100644
 --- a/dlls/winemac.drv/cocoa_app.h
 +++ b/dlls/winemac.drv/cocoa_app.h
 @@ -167,6 +167,9 @@ - (void) didSendEvent:(NSEvent*)anEvent;
@@ -13,19 +13,26 @@ index 4da4676..8e1f360 100644
  
  
 diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
-index 53420fe..ad2cfeb 100644
+index 0a95f47..a75de8c 100644
 --- a/dlls/winemac.drv/cocoa_app.m
 +++ b/dlls/winemac.drv/cocoa_app.m
-@@ -3277,6 +3277,8 @@ - (void)applicationDidBecomeActive:(NSNotification *)notification
+@@ -3277,6 +3277,15 @@ - (void)applicationDidBecomeActive:(NSNotification *)notification
  
          [self updateFullscreenWindows];
          [self adjustWindowLevels:YES];
 +        if (fullscreen_normal_level_allowed)
++        {
++            /* Again once the activation is complete, in case the key window
++               settles after this notification. */
 +            [self updateFullscreenPresentation];
++            dispatch_async(dispatch_get_main_queue(), ^{
++                [self updateFullscreenPresentation];
++            });
++        }
  
          /* Cupid: a native-fullscreen window enters its Space only while
             the application is active (WINEMAC_NATIVE_FULLSCREEN). */
-@@ -3335,6 +3337,43 @@ - (void)applicationDidChangeScreenParameters:(NSNotification *)notification
+@@ -3335,6 +3344,59 @@ - (void)applicationDidChangeScreenParameters:(NSNotification *)notification
          forceNextMouseMoveAbsolute = TRUE;
      }
  
@@ -38,8 +45,24 @@ index 53420fe..ad2cfeb 100644
 +        static BOOL applied;
 +        static NSApplicationPresentationOptions saved;
 +        NSWindow* key = [NSApp keyWindow];
-+        BOOL want = [NSApp isActive] && [key isKindOfClass:[WineWindow class]] && [key isVisible] &&
-+                    ![key isMiniaturized] && [(WineWindow*)key fullscreenNormalLevel];
++        BOOL want;
++
++        /* -[NSApp keyWindow] is still nil while windowDidBecomeKey: runs, and the
++           application can become active before its window becomes key again (a
++           click on the window does both in that order), so ask the windows. */
++        if (!key)
++        {
++            for (NSWindow* window in [NSApp windows])
++            {
++                if ([window isKeyWindow])
++                {
++                    key = window;
++                    break;
++                }
++            }
++        }
++        want = [NSApp isActive] && [key isKindOfClass:[WineWindow class]] && [key isVisible] &&
++               ![key isMiniaturized] && [(WineWindow*)key fullscreenNormalLevel];
 +
 +        /* setPresentationOptions: can re-enter this method (it activates and orders
 +           windows); the state is updated before the call. */
@@ -69,7 +92,7 @@ index 53420fe..ad2cfeb 100644
      - (void)applicationDidResignActive:(NSNotification *)notification
      {
          macdrv_event* event;
-@@ -3360,6 +3399,8 @@ - (void)applicationDidResignActive:(NSNotification *)notification
+@@ -3360,6 +3422,8 @@ - (void)applicationDidResignActive:(NSNotification *)notification
          }
  
          [self releaseMouseCapture];
@@ -79,7 +102,7 @@ index 53420fe..ad2cfeb 100644
  
      - (void) applicationDidUnhide:(NSNotification*)aNotification
 diff --git a/dlls/winemac.drv/cocoa_window.h b/dlls/winemac.drv/cocoa_window.h
-index 9025da8..f5f3abb 100644
+index 8395fb4..d1905f4 100644
 --- a/dlls/winemac.drv/cocoa_window.h
 +++ b/dlls/winemac.drv/cocoa_window.h
 @@ -130,4 +130,7 @@ - (void) setRetinaMode:(BOOL)mode;
@@ -91,7 +114,7 @@ index 9025da8..f5f3abb 100644
 +
  @end
 diff --git a/dlls/winemac.drv/cocoa_window.m b/dlls/winemac.drv/cocoa_window.m
-index 9208e4b..eebf8d4 100644
+index a3aaf12..1afcb0b 100644
 --- a/dlls/winemac.drv/cocoa_window.m
 +++ b/dlls/winemac.drv/cocoa_window.m
 @@ -1272,7 +1272,10 @@ - (NSInteger) minimumLevelForActive:(BOOL)active
@@ -155,7 +178,7 @@ index 9208e4b..eebf8d4 100644
          if ([[WineApplicationController sharedController] temporarilyIgnoreResignEventsForDialog]) return;
  
 diff --git a/dlls/winemac.drv/macdrv_cocoa.h b/dlls/winemac.drv/macdrv_cocoa.h
-index 1009c5b..8237a18 100644
+index fd34764..6a1b887 100644
 --- a/dlls/winemac.drv/macdrv_cocoa.h
 +++ b/dlls/winemac.drv/macdrv_cocoa.h
 @@ -150,6 +150,7 @@
@@ -167,7 +190,7 @@ index 1009c5b..8237a18 100644
     app_display_name (WINEMAC_APP_NAME) is set only when LaunchServices offers
     the private call that renames a running application. */
 diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
-index 8982abd..fa85f0a 100644
+index e318ecf..d770e25 100644
 --- a/dlls/winemac.drv/macdrv_main.c
 +++ b/dlls/winemac.drv/macdrv_main.c
 @@ -62,6 +62,7 @@ bool use_precise_scrolling = true;

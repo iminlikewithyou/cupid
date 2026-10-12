@@ -7,7 +7,8 @@ README gives), in this order:
 
 1. `wine-winemac-dock-identity.patch`
 2. `wine-winemac-native-fullscreen.patch`
-3. `wine-winemac-fullscreen-normal-level.patch` (from cupid-20261012.5)
+3. `wine-winemac-fullscreen-normal-level.patch` (from cupid-20261012.5; re-activation fixed in
+   cupid-20261012.6)
 4. `wine-mfreadwrite-shared-textures.patch` (from cupid-20261012.5)
 5. `wine-coremessaging-dispatcher-queue.patch` (from cupid-20261012.5)
 
@@ -99,7 +100,12 @@ MacBook Pro, camera housing included), notification banners draw over it, and th
 Dock appear when the pointer reaches the edge. `-[WineApplicationController
 updateFullscreenPresentation]` updates its state before calling `setPresentationOptions:`, which
 re-enters it (a first version without that saved the auto-hide options as "the previous ones"
-and never restored them).
+and never restored them). It finds the key window by asking each window `isKeyWindow` when
+`-[NSApp keyWindow]` is nil, which it still is while `windowDidBecomeKey:` runs, and checks again
+once `applicationDidBecomeActive:` has returned: when the application becomes active before its
+window becomes key again (clicking the window does that), the first version saw no key window at
+either point and left the menu bar and Dock showing until the next activation (from
+cupid-20261012.6).
 
 ## wine-mfreadwrite-shared-textures.patch
 

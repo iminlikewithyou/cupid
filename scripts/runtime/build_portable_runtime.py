@@ -25,7 +25,7 @@ CUPID_PATCHES_DIR = ROOT / 'patches/cupid'
 CUPID_PATCHES = {
     'wine-winemac-dock-identity.patch': '9bffbed675ca6b4635a9e1489b339923d5320eb706caac9b96e7f8cf33f5ad03',
     'wine-winemac-native-fullscreen.patch': '1ac4047a6c38f7c921d7fa116698a8abb83a9effd5c11eec39ae13c9c1a8a48f',
-    'wine-winemac-fullscreen-normal-level.patch': 'ce7042a4a6e0b23f0ad6752008a9e3f5b9820e1e198682d6161531af80198df1',
+    'wine-winemac-fullscreen-normal-level.patch': '0f183c50141c0c3eebe744eacc26e3e03c9412d5db4906ef68f2068b3c21e7ab',
     'wine-mfreadwrite-shared-textures.patch': '6743b0dce57bbd50c98aec3c3a3090a987a81a4ba0bed295ea71c1197755577b',
     'wine-coremessaging-dispatcher-queue.patch': '4460c42fd31a31afbe295739855a91eb7732e1b674ccc5d72d9c4b09a48bd818',
 }
