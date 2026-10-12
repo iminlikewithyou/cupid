@@ -44,17 +44,17 @@ public struct RuntimeInstaller: Sendable {
     public func ensureGameModeBundle(minimumMacOS: String? = nil) throws -> Bool {
         let fm = FileManager.default
         if fm.fileExists(atPath: paths.gameModeApp.path) {
-            if let found = GameModeBundle.installedIdentifier(runtime: paths.runtime), found != GameModeBundle.identifier {
-                try SessionGuard.requireIdle(paths, to: "regenerate xdt.app (identifier \(found) -> \(GameModeBundle.identifier))")
+            if let reason = GameModeBundle.staleReason(runtime: paths.runtime, gameExe: paths.gameExe) {
+                try SessionGuard.requireIdle(paths, to: "regenerate xdt.app (\(reason))")
                 try fm.removeItem(at: paths.gameModeApp)
-                Logs.append(paths, "runtime: regenerating xdt.app, identifier \(found) -> \(GameModeBundle.identifier)")
+                Logs.append(paths, "runtime: regenerating xdt.app: \(reason)")
             } else {
                 try GameModeBundle.check(runtime: paths.runtime)
                 return false
             }
         }
         let minimum = minimumMacOS ?? (try? RuntimeManifest.load(paths.runtimeManifest))?.minimumMacOS ?? "15.0"
-        try GameModeBundle.create(runtime: paths.runtime, minimumMacOS: minimum)
+        try GameModeBundle.create(runtime: paths.runtime, minimumMacOS: minimum, gameExe: paths.gameExe)
         return true
     }
 

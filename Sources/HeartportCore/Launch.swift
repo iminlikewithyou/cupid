@@ -47,6 +47,12 @@ public struct GameLauncher: Sendable {
         // A game must start in a fresh session (the launcher's session has other displays/flags).
         try SessionGuard.requireIdle(paths, to: "start Heartopia")
 
+        // An xdt.app from an older Heartport, or made before the game (and its icon) was there.
+        if let reason = GameModeBundle.staleReason(runtime: paths.runtime, gameExe: paths.gameExe) {
+            log("Regenerating the Game Mode app: \(reason)")
+            try RuntimeInstaller(paths: paths).ensureGameModeBundle()
+        }
+
         try paths.createLayout()
         if try DxmtConfig.write(to: paths.dxmtConf) { log("Wrote \(paths.dxmtConf.path)") }
         // A moved or reinstalled runtime leaves dangling ntdll.so links in the loader's cache.

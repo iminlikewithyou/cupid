@@ -18,12 +18,26 @@ public enum GameModeBundle {
         relativePath + "/Contents/MacOS/wine",
         relativePath + "/Contents/_CodeSignature/CodeResources",
     ]
+    /// The Dock icon, when there is one (`CFBundleIconFile`).
+    public static let iconFile = "Contents/Resources/Heartopia.icns"
+
+    /// Bumped whenever the generated bundle changes; an older bundle is regenerated.
+    /// 1: identifier and game keys (no version key). 2: display name and icon.
+    public static let bundleVersion = 2
+    public static let versionKey = "HeartportBundleVersion"
+    /// Where the icon came from: "game" (the exe's own icon), "heartport" (Heartport's icon),
+    /// or "none".
+    public static let iconSourceKey = "HeartportIconSource"
+    /// The game's exe existed when the bundle was made; when it did not, the bundle is
+    /// regenerated with the game's icon once it does.
+    public static let iconFromGameTriedKey = "HeartportIconFromGameTried"
 
     /// Keys added to the loader's embedded Info.plist.
     public static func gameKeys(identifier: String = identifier) -> [String: Any] {
         [
             "CFBundleIdentifier": identifier,
             "CFBundleName": "Heartopia",
+            "CFBundleDisplayName": "Heartopia",
             "CFBundleExecutable": "wine",
             "LSApplicationCategoryType": "public.app-category.simulation-games",
             "LSSupportsGameMode": true,
@@ -31,7 +45,31 @@ public enum GameModeBundle {
             "NSLocalNetworkUsageDescription": "Heartopia receives your sign-in from your web browser on this Mac.",
             // Kept: without a usage string, TCC kills a process that opens an input device.
             "NSMicrophoneUsageDescription": "Heartopia uses the microphone only if you turn on voice chat in the game.",
+            versionKey: bundleVersion,
         ]
+    }
+
+    /// Heartport's own icon, for a game exe without a usable icon: inside the app
+    /// (Contents/Resources/AppIcon.icns, also next to the CLI in Contents/Helpers), or a
+    /// checkout's build/AppIcon.icns.
+    public static func fallbackIconCandidates(executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "")) -> [URL] {
+        var out: [URL] = []
+        if let main = Bundle.main.url(forResource: "AppIcon", withExtension: "icns") { out.append(main) }
+        let exeDir = executable.resolvingSymlinksInPath().deletingLastPathComponent()
+        out.append(exeDir.appendingPathComponent("../Resources/AppIcon.icns").standardizedFileURL)
+        var dir = exeDir
+        for _ in 0..<8 {
+            if FileManager.default.fileExists(atPath: dir.appendingPathComponent("Package.swift").path) {
+                out.append(dir.appendingPathComponent("build/AppIcon.icns"))
+                break
+            }
+            dir = dir.deletingLastPathComponent()
+        }
+        return out
+    }
+
+    public static func defaultFallbackIcon() -> URL? {
+        fallbackIconCandidates().first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     // MARK: Mach-O
@@ -94,9 +132,11 @@ public enum GameModeBundle {
 
     // MARK: create / check
 
-    /// Create the bundle inside `runtime`. Fails if it exists.
+    /// Create the bundle inside `runtime`. Fails if it exists. Its icon is the largest icon of
+    /// `gameExe` drawn on the macOS icon grid, else a copy of `fallbackIcon`, else none.
     public static func create(runtime: URL, minimumMacOS: String = "15.0", identity: String = "-",
-                              identifier: String = identifier) throws {
+                              identifier: String = identifier, gameExe: URL? = nil,
+                              fallbackIcon: URL? = defaultFallbackIcon()) throws {
         let fm = FileManager.default
         let loader = runtime.appendingPathComponent(loaderPath)
         let bundle = runtime.appendingPathComponent(relativePath)
@@ -110,6 +150,21 @@ public enum GameModeBundle {
         let macOS = bundle.appendingPathComponent("Contents/MacOS")
         try fm.createDirectory(at: macOS, withIntermediateDirectories: true)
         do {
+            let gameExeExists = gameExe.map { fm.fileExists(atPath: $0.path) } ?? false
+            info[iconFromGameTriedKey] = gameExeExists
+            var source = "none"
+            let icon = bundle.appendingPathComponent(iconFile)
+            if gameExeExists, let gameExe, let image = PEIcon.largestImage(exe: gameExe) {
+                try fm.createDirectory(at: icon.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try MacIcon.writeICNS(image, to: icon)
+                source = "game"
+            } else if let fallbackIcon, fm.fileExists(atPath: fallbackIcon.path) {
+                try fm.createDirectory(at: icon.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fm.copyItem(at: fallbackIcon, to: icon)
+                source = "heartport"
+            }
+            info[iconSourceKey] = source
+            if source != "none" { info["CFBundleIconFile"] = "Heartopia" }
             let plist = try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
             try plist.write(to: bundle.appendingPathComponent("Contents/Info.plist"))
             var copy = data
@@ -134,7 +189,8 @@ public enum GameModeBundle {
             guard sign.status == 0 else { throw HeartportError(.process, "codesign failed: \(sign.stderr)") }
             try check(runtime: runtime, identifier: identifier)
             let added = try listFiles(bundle, relativeTo: runtime)
-            guard added == addedFiles.sorted() else {
+            let expected = addedFiles + (source == "none" ? [] : [relativePath + "/" + iconFile])
+            guard added == expected.sorted() else {
                 throw HeartportError(.runtimeInvalid, "Unexpected game app files: \(added.joined(separator: ", "))")
             }
         } catch {
@@ -166,12 +222,31 @@ public enum GameModeBundle {
         return out.sorted()
     }
 
+    /// The Info.plist of an existing xdt.app (nil when absent or unreadable).
+    public static func installedInfo(runtime: URL) -> [String: Any]? {
+        let url = runtime.appendingPathComponent(relativePath).appendingPathComponent("Contents/Info.plist")
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+    }
+
     /// CFBundleIdentifier of an existing xdt.app (nil when absent or unreadable).
     public static func installedIdentifier(runtime: URL) -> String? {
-        let url = runtime.appendingPathComponent(relativePath).appendingPathComponent("Contents/Info.plist")
-        guard let data = try? Data(contentsOf: url),
-              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return nil }
-        return plist["CFBundleIdentifier"] as? String
+        installedInfo(runtime: runtime)?["CFBundleIdentifier"] as? String
+    }
+
+    /// Why an existing xdt.app should be regenerated: another identifier (pre-rename), an older
+    /// bundle version, or it was made before the game's exe (and with it the game's icon)
+    /// existed. Nil when it is current or absent. Reads only the Info.plist (cheap).
+    public static func staleReason(runtime: URL, gameExe: URL) -> String? {
+        guard let info = installedInfo(runtime: runtime) else { return nil }
+        let found = info["CFBundleIdentifier"] as? String
+        if found != identifier { return "identifier \(found ?? "none") -> \(identifier)" }
+        let version = (info[versionKey] as? Int) ?? 1
+        if version != bundleVersion { return "bundle version \(version) -> \(bundleVersion)" }
+        if info[iconFromGameTriedKey] as? Bool != true, FileManager.default.fileExists(atPath: gameExe.path) {
+            return "the game's icon is available now"
+        }
+        return nil
     }
 
     /// The bundle is sealed (`codesign --verify --strict --deep`), carries our identifier and the

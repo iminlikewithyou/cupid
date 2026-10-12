@@ -150,7 +150,7 @@ struct CLI {
         let steps = setup.plan(state: AppState.load(paths))
         if steps.isEmpty {
             // Nothing is written, not even state.json: an adopted spike prefix stays byte-identical.
-            say("Prefix up to date at \(paths.prefix.path): Windows 10, RetinaMode=N, \(RegistrySeeds.gamePrefs.count) game settings present, no user-folder symlinks.")
+            say("Prefix up to date at \(paths.prefix.path): Windows 10, RetinaMode=N, \(RegistrySeeds.all.count - 1) game settings present, no user-folder symlinks.")
             return
         }
         say("Prefix needs: " + steps.map(\.description).joined(separator: "; "))

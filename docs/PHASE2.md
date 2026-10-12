@@ -46,6 +46,13 @@ adopt an existing one rather than rebuild it.
   `make-game-mode-app.py` (identifier `app.heartport.heartopia`, name Heartopia,
   category `public.app-category.simulation-games`, ad hoc signed until a Developer ID
   exists). `codesign --verify --strict --deep` must pass.
+  Bundle version 2 (`HeartportBundleVersion`) adds `CFBundleDisplayName` Heartopia and a
+  Dock icon, `Contents/Resources/Heartopia.icns`: the largest icon in xdt.exe's PE resources
+  (RT_GROUP_ICON/RT_ICON; 256x256 is PNG), drawn on the macOS icon grid (824/1024 rounded
+  square, ~10% margins), or Heartport's own icon before the game is installed. An older
+  bundle, or one made before xdt.exe existed, is regenerated at setup or before the next
+  launch (`GameModeBundle.staleReason`). Unverified: winemac may replace the Dock name and
+  icon at runtime.
 - Licenses: ship Recall's `licenses/` tree plus Recall's NOTICE and Apache-2.0 text, as
   MacGames does. Corresponding sources are Recall's published ones; link them in
   `docs/THIRD_PARTY.md`.
