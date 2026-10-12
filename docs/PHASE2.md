@@ -80,14 +80,14 @@ adopt an existing one rather than rebuild it.
      | `PcUICanvasScale_h3623448666` | 1 (85%) |
      | `SoundVolumeString_h3855669083` | 25 (music 25%) |
      | `SoundEffectVolume_h2094452281` | 50 (effects 50%) |
-     | `PcResolutionLevelString_h3084135899` | 12 |
-     | `LastPcResolutionLevelStringV1_h1546529270` | 12 |
      | `Screenmanager Fullscreen mode_h3630240806` | 1 |
 
-     Index 12 is a 3840x2160 entry at 60 fps (assumed: the list is 14 entries of 16:9 sizes
-     each at @60 and @120; verify the label in-game once and correct the index if needed).
-     Any entry larger than the desktop makes the engine render at the desktop size, which
-     with Retina off is 1728x1080 (it caps aspect at 16:10).
+     No resolution or screen-size values (`PcResolutionLevelString`,
+     `LastPcResolutionLevelStringV1`, `Screenmanager Resolution Use Native/Width/Height`):
+     with them the first launch asked "Resolution switched to 3840x2160@120 FPS. Apply?"
+     (fresh-install runs 1 and 2, docs/PLAN.md); without them the game picks the desktop size
+     itself, as the spike's unseeded first launch did. To verify on the next fresh run. The
+     frame rate is capped at 60 in `dxmt.conf` (`d3d11.preferredMaxFrameRate`) for power.
    - Seeds are applied only when the key or value is absent, so the player's later
      in-game changes are kept. A "Reset graphics" action re-applies them.
 4. Replace any symlinks in `drive_c/users/*/` with empty directories (this Wine made none,
@@ -118,12 +118,13 @@ WINE_NO_DOCK_ICON=TapTapGlobal.exe
 HOME=<data>/home  USER=player  TMPDIR=<data>/tmp
 ```
 
-`dxmt.conf` (written per launch from the template):
+`dxmt.conf` (rewritten before each launch whenever it differs from the template, so a
+changed template reaches existing installs on their next play):
 
 ```
 [xdt.exe]
 d3d11.releaseShaderIR = True
-d3d11.preferredMaxFrameRate = 120
+d3d11.preferredMaxFrameRate = 60
 d3d11.shaderCompilerThreads = 8
 d3d11.shaderCompilerNormalPriority = True
 d3d11.metalSpatialUpscaleFactor = 2.0

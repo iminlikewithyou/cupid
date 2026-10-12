@@ -98,6 +98,12 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertTrue(try DxmtConfig.write(to: url))
         XCTAssertFalse(try DxmtConfig.write(to: url))
         XCTAssertTrue(DxmtConfig.isCurrent(at: url))
+        XCTAssertTrue(DxmtConfig.template.contains("d3d11.preferredMaxFrameRate = 60\n"))
+        // An install from before the 60 fps cap is rewritten on its next play.
+        try write(DxmtConfig.template.replacingOccurrences(of: "preferredMaxFrameRate = 60", with: "preferredMaxFrameRate = 120"), to: url)
+        XCTAssertFalse(DxmtConfig.isCurrent(at: url))
+        XCTAssertTrue(try DxmtConfig.write(to: url))
+        XCTAssertTrue(DxmtConfig.isCurrent(at: url))
         try write("[xdt.exe]\nold\n", to: url)
         XCTAssertFalse(DxmtConfig.isCurrent(at: url))
         XCTAssertTrue(try DxmtConfig.write(to: url))

@@ -15,8 +15,6 @@ final class RegistryTests: XCTestCase {
             ("PcUICanvasScale_h3623448666", 1),
             ("SoundVolumeString_h3855669083", 25),
             ("SoundEffectVolume_h2094452281", 50),
-            ("PcResolutionLevelString_h3084135899", 12),
-            ("LastPcResolutionLevelStringV1_h1546529270", 12),
             ("Screenmanager Fullscreen mode_h3630240806", 1),
         ]
         XCTAssertEqual(RegistrySeeds.gamePrefs.count, expected.count)
@@ -28,7 +26,9 @@ final class RegistryTests: XCTestCase {
         }
         XCTAssertEqual(RegistrySeeds.retinaMode.key, #"Software\Wine\Mac Driver"#)
         XCTAssertEqual(RegistrySeeds.retinaMode.value, .string("N"))
-        XCTAssertEqual(RegistrySeeds.all.count, 15)
+        XCTAssertEqual(RegistrySeeds.all.count, 13)
+        // No resolution or screen-size seeds (they caused the first-launch "Apply?" prompt).
+        XCTAssertFalse(RegistrySeeds.all.contains { $0.name.contains("Resolution") })
     }
 
     func testRegAddArguments() {
@@ -37,7 +37,6 @@ final class RegistryTests: XCTestCase {
         let fullscreen = RegistrySeeds.gamePrefs.last!
         XCTAssertEqual(fullscreen.regAddArguments,
                        ["reg.exe", "add", #"HKCU\Software\xd\Heartopia"#, "/v", "Screenmanager Fullscreen mode_h3630240806", "/t", "REG_DWORD", "/d", "1", "/f"])
-        XCTAssertEqual(RegistrySeeds.gamePrefs[11].regAddArguments[8], "12")
     }
 
     static let userReg = #"""
@@ -63,6 +62,9 @@ final class RegistryTests: XCTestCase {
     "QualityLevel_h4026849054"=dword:00000001
     "RenderScaleString_h868707778"=dword:00000001
     "Screenmanager Fullscreen mode_h3630240806"=dword:00000001
+    "Screenmanager Resolution Height_h2627697771"=dword:00000438
+    "Screenmanager Resolution Use Native_h1405027254"=dword:00000000
+    "Screenmanager Resolution Width_h182942802"=dword:00000780
     "ShaderQualityString_h3156345780"=dword:00000001
     "SoundEffectVolume_h2094452281"=dword:00000032
     "SoundVolumeString_h3855669083"=dword:00000019
@@ -88,8 +90,8 @@ final class RegistryTests: XCTestCase {
         // RetinaMode=Y is enforced to N; only the absent UnityGraphicsQuality is added; values the
         // player changed (NewUserGraphicsQuality=3, LastPcResolution=8, RenderScale=1) are kept.
         XCTAssertEqual(pending.map(\.name), ["RetinaMode", "UnityGraphicsQuality_h1669003810"])
-        XCTAssertEqual(RegistrySeeds.pending(in: reg, force: true).count, 15)
-        XCTAssertEqual(RegistrySeeds.pending(in: nil).count, 15)
+        XCTAssertEqual(RegistrySeeds.pending(in: reg, force: true).count, 13)
+        XCTAssertEqual(RegistrySeeds.pending(in: nil).count, 13)
         let fixed = RegFile(text: Self.userReg.replacingOccurrences(of: #""RetinaMode"="Y""#, with: #""RetinaMode"="N""#)
                             + "\n[Software\\\\xd\\\\Heartopia] 1\n\"UnityGraphicsQuality_h1669003810\"=dword:00000003\n")
         XCTAssertEqual(RegistrySeeds.pending(in: fixed), [])

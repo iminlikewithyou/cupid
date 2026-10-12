@@ -6,7 +6,7 @@ public enum DxmtConfig {
     public static let template = """
     [xdt.exe]
     d3d11.releaseShaderIR = True
-    d3d11.preferredMaxFrameRate = 120
+    d3d11.preferredMaxFrameRate = 60
     d3d11.shaderCompilerThreads = 8
     d3d11.shaderCompilerNormalPriority = True
     d3d11.metalSpatialUpscaleFactor = 2.0

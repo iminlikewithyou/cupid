@@ -135,7 +135,10 @@ public enum RegistrySeeds {
     /// launcher is sized wrong at Y, and the game's full-panel mode needs N.
     public static let retinaMode = RegistrySeed(key: macDriverKey, name: "RetinaMode", value: .string("N"), policy: .enforce)
 
-    /// Heartopia's PlayerPrefs (hashed names), all REG_DWORD.
+    /// Heartopia's PlayerPrefs (hashed names), all REG_DWORD. No resolution or screen-size
+    /// values: with them the game asked "Resolution switched to 3840x2160@120 FPS. Apply?" on
+    /// its first launch; without them it picks the desktop size itself (docs/PLAN.md,
+    /// fresh-install test run 2). Frame rate is capped in dxmt.conf instead.
     public static let gamePrefs: [RegistrySeed] = [
         ("UnityGraphicsQuality_h1669003810", 1),            // High
         ("QualityLevel_h4026849054", 1),
@@ -148,10 +151,6 @@ public enum RegistrySeeds {
         ("PcUICanvasScale_h3623448666", 1),                 // 85%
         ("SoundVolumeString_h3855669083", 25),              // music 25%
         ("SoundEffectVolume_h2094452281", 50),              // effects 50%
-        // VERIFY: index 12 assumed to be 3840x2160@60 (14 entries of 16:9 sizes, each @60 and @120);
-        // check the label in-game once and correct the index if needed.
-        ("PcResolutionLevelString_h3084135899", 12),
-        ("LastPcResolutionLevelStringV1_h1546529270", 12),
         ("Screenmanager Fullscreen mode_h3630240806", 1),   // fullscreen window
     ].map { RegistrySeed(key: gameKey, name: $0.0, value: .dword($0.1), policy: .whenAbsent) }
 
