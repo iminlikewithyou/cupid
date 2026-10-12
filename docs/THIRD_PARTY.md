@@ -42,6 +42,17 @@ Mode can engage.
 
 Rosetta 2 is Apple's and is installed by the user from Apple; it is not bundled.
 
+## Runtime build scripts (not bundled)
+
+`scripts/runtime/` holds copies of Recall's runtime build pipeline (https://github.com/AsherJN/recall,
+commit `61a3a59`, Apache-2.0, Copyright 2026 Joshua Asher Nelson; its NOTICE is
+`scripts/runtime/RECALL-NOTICE`), modified for Heartport as listed in `scripts/runtime/README.md`,
+and `patches/recall/` holds Recall's Wine and DXMT patches unchanged (LGPL-2.1-or-later, as the
+code they patch). A runtime built with them (`heartport-*`) carries the same third-party
+components as the Recall runtime above, from the same pinned sources, with Heartport's
+`LICENSE` and a NOTICE crediting Recall in `licenses/` in place of Recall's, nvngx.dll signed
+with Heartport's own certificate, and no `Overwatch.app`.
+
 ## Downloaded at setup, not bundled
 
 - **TapTap Global PC client** (TapTap / XD). Heartport downloads the official installer from
