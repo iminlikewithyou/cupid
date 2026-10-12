@@ -8,6 +8,8 @@ copies of Recall's release pipeline, adapted for Heartport:
   2.0; its NOTICE is kept here as `RECALL-NOTICE`. Each copied script carries a header saying so.
 - Recall's patches are in `../../patches/recall/`, byte-for-byte (8 Wine patches, 4 DXMT
   patches and their README). The scripts check each patch's sha256 before applying it.
+- Heartport's own Wine patches are in `../../patches/heartport/` (from `heartport-20261012.4`:
+  the Mac driver's Dock identity and native fullscreen Space), applied after Recall's.
 - `config/dxmt-source60-1200.conf` is Recall's renderer profile, which the assembler installs
   as the runtime's `config/dxmt.conf` (identical to Recall 1.3.0's).
 
@@ -148,6 +150,10 @@ All scripts:
 (`HAVE_FFMPEG` required in config.h) and GStreamer (`--with-gstreamer`, winegstreamer.so required); a marker in the Wine source records the applied patches,
 so a rerun on a patched tree skips patching (the patches overlap, and Recall's `apply_once` stops
 on such a tree).
+Heartport's own Wine patches (`patches/heartport/`, sha256-pinned in `HEARTPORT_PATCHES`) are
+applied after Recall's; the source tree keeps a copy of each in `.heartport-own-patches/`, so a
+rerun skips them and a changed patch is reversed and re-applied (only the driver rebuilds). The
+build proof lists them under `heartport_patches`.
 
 `build_portable_dependencies.py`: FFmpeg and the GStreamer stack (see above); `--only ffmpeg`;
 `--from NAME` starts at a dependency; `--toolchains` (meson, ninja, bison).

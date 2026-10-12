@@ -20,6 +20,12 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[2]
 # Heartport: Recall's patches live in patches/recall/; toolchains outside the repo.
 PATCHES_DIR = ROOT / 'patches/recall'
+# Heartport's own Wine patches, applied after Recall's set (see patches/heartport/README.md).
+HEARTPORT_PATCHES_DIR = ROOT / 'patches/heartport'
+HEARTPORT_PATCHES = {
+    'wine-winemac-dock-identity.patch': '61dbeb5423bc4a37ba75f7dcb5d5e7dfec3fb1c503928417901bf96b12d00fec',
+    'wine-winemac-native-fullscreen.patch': 'c477e54aa490b3242b645dac3093310280dca24c08143b91e02c3ee6896581f0',
+}
 TOOLCHAINS = ROOT.parent / 'mactopia-runtime/toolchains'
 PREFIX_MAP = '/build/heartport'
 CONFIGURATION = 'vulkan-sdl2-ffmpeg-gstreamer-enabled-v1\n'
@@ -103,6 +109,44 @@ def apply_once(source, patch):
         run(['/usr/bin/patch', '-N', '-F0', '-p1', '-i', patch], cwd=source)
 
 
+def apply_heartport_patches(wine):
+    """Apply Heartport's patches on top of Recall's set, in order.
+
+    The source tree keeps a copy of each applied patch in `.heartport-own-patches/` with a
+    marker listing them, so a rerun skips what is already applied, and a patch that changed
+    (or was removed) is reversed from its stored copy, together with every later one, before
+    the current set is applied. Recall's marker (`.heartport-patches.json`) is unaffected.
+    """
+    for name, expected in HEARTPORT_PATCHES.items():
+        if sha(HEARTPORT_PATCHES_DIR / name) != expected:
+            raise RuntimeError('A Heartport patch changed: ' + name)
+    store = wine / '.heartport-own-patches'
+    store.mkdir(exist_ok=True)
+    marker = store / 'applied.json'
+    applied = json.loads(marker.read_text()) if marker.exists() else []
+    wanted = [[name, digest] for name, digest in HEARTPORT_PATCHES.items()]
+    keep = 0
+    while keep < min(len(applied), len(wanted)) and applied[keep] == wanted[keep]:
+        keep += 1
+    def save():
+        marker.write_text(json.dumps(applied, indent=1) + '\n')
+    while len(applied) > keep:
+        name, _ = applied[-1]
+        run(['git', 'apply', '--reverse', store / name], cwd=wine)
+        (store / name).unlink()
+        applied.pop()
+        save()
+        print('Reversed ' + name, flush=True)
+    for name, digest in wanted[keep:]:
+        patch = HEARTPORT_PATCHES_DIR / name
+        run(['git', 'apply', '--check', patch], cwd=wine)
+        run(['git', 'apply', patch], cwd=wine)
+        shutil.copy2(patch, store / name)
+        applied.append([name, digest])
+        save()
+        print('Applied ' + name, flush=True)
+
+
 def build(work, tools, headers, jobs):
     fetch(work)
     wine = extract(work, 'wine', 'sources/wine/') / 'sources/wine'
@@ -152,6 +196,9 @@ def build(work, tools, headers, jobs):
             raise RuntimeError('The accepted v1.0 patch changed: ' + name)
         apply_once_here(wine, p)
     marker.write_text(applied)
+    # Heartport's own driver patches (Dock identity, native fullscreen Space), inert unless
+    # their environment variables are set.
+    apply_heartport_patches(wine)
     # The complete native driver supersedes Soju's native-window patches.
     # Omit its GOG-only Chromium injection (not used by the v6 launcher), which
     # also needs a rebase against CodeWeavers' Ubisoft environment-variable hook.
@@ -271,6 +318,7 @@ def build(work, tools, headers, jobs):
               'soju_compatibility_patches': PATCHES,
               'directory_boolean_patch_sha256': sha(directory_patch),
               'v1_patches': V1_PATCHES,
+              'heartport_patches': HEARTPORT_PATCHES,
               'gnutls_header_sha256': sha(headers / 'gnutls/gnutls.h'),
               'minimum_macos': '26.0', 'runtime_scope': 'Wine + FreeType built from source; DXMT assembly is separate',
               'without_vulkan': False, 'without_gstreamer': False, 'with_sdl2': True, 'with_ffmpeg': True,

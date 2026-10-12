@@ -1,0 +1,145 @@
+diff --git a/dlls/winemac.drv/cocoa_app.m b/dlls/winemac.drv/cocoa_app.m
+index e9357e1..0087e9d 100644
+--- a/dlls/winemac.drv/cocoa_app.m
++++ b/dlls/winemac.drv/cocoa_app.m
+@@ -648,6 +648,27 @@ - (void) transformProcessToForeground:(BOOL)activateIfTransformed
+             [self changeEditMenuKeyEquivalentsForWindow:[NSApp keyWindow]];
+ 
+             [NSApp setApplicationIconImage:self.applicationIcon];
++            [self applyEnvironmentIdentity];
++        }
++    }
++
++    /* Heartport: WINEMAC_APP_NAME and WINEMAC_APP_ICON (see setup_app_identity),
++       applied once the process has become a regular application. */
++    - (void) applyEnvironmentIdentity
++    {
++        if (app_icon_path)
++        {
++            NSImage* image = [[[NSImage alloc] initWithContentsOfFile:(NSString*)app_icon_path] autorelease];
++            if ([image isValid])
++                [NSApp setApplicationIconImage:image];
++        }
++
++        if (app_display_name)
++        {
++            CFTypeRef asn = app_current_asn();
++            if (asn)
++                app_set_information_item(-2 /* kLSDefaultSessionID */, asn, app_display_name_key,
++                                         app_display_name, NULL);
+         }
+     }
+ 
+@@ -3795,6 +3816,9 @@ void macdrv_set_application_icon(CFArrayRef images, CFURLRef urlRef)
+     NSArray* imageArray = (NSArray*)images;
+     NSURL* url = (NSURL*)urlRef;
+ 
++    /* Heartport: WINEMAC_APP_ICON owns the Dock icon; the exe's icon never replaces it. */
++    if (app_icon_path) return;
++
+     OnMainThreadAsync(^{
+         // CrossOver Hack 13440: Get the icon from the passed-in URL if no images
+         WineApplicationController* controller = [WineApplicationController sharedController];
+diff --git a/dlls/winemac.drv/macdrv_cocoa.h b/dlls/winemac.drv/macdrv_cocoa.h
+index 5845bef..fc31f7f 100644
+--- a/dlls/winemac.drv/macdrv_cocoa.h
++++ b/dlls/winemac.drv/macdrv_cocoa.h
+@@ -149,6 +149,14 @@
+ extern bool enable_app_nap;
+ extern bool mouselook_allowed;  /* This process may use mouselook (WINEMAC_MOUSELOOK lists its exe). */
+ extern char mouselook_process[64];
++/* Heartport: the Dock identity from the environment, read by setup_options.
++   app_display_name (WINEMAC_APP_NAME) is set only when LaunchServices offers
++   the private call that renames a running application. */
++extern CFStringRef app_display_name;
++extern int (*app_set_information_item)(int session, CFTypeRef asn, CFStringRef key, CFTypeRef value, CFDictionaryRef *info);
++extern CFTypeRef (*app_current_asn)(void);
++extern CFStringRef app_display_name_key;
++extern CFStringRef app_icon_path;     /* WINEMAC_APP_ICON: replaces the exe's icon in the Dock */
+ 
+ static inline CGRect cgrect_mac_from_win(CGRect rect)
+ {
+diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
+index 8f0dbed..c7c9334 100644
+--- a/dlls/winemac.drv/macdrv_main.c
++++ b/dlls/winemac.drv/macdrv_main.c
+@@ -26,6 +26,8 @@
+ 
+ #include "config.h"
+ 
++#include <dlfcn.h>
++
+ #include <Security/AuthSession.h>
+ #include <IOKit/pwr_mgt/IOPMLib.h>
+ 
+@@ -59,6 +61,11 @@ bool cursor_clipping_locks_windows = true;
+ bool use_precise_scrolling = true;
+ bool mouselook_allowed = false;
+ char mouselook_process[64];
++CFStringRef app_display_name = NULL;
++int (*app_set_information_item)(int, CFTypeRef, CFStringRef, CFTypeRef, CFDictionaryRef *) = NULL;
++CFTypeRef (*app_current_asn)(void) = NULL;
++CFStringRef app_display_name_key = NULL;
++CFStringRef app_icon_path = NULL;
+ struct macdrv_input_stats macdrv_input_stats;
+ bool macdrv_input_stats_on = false;
+ int gl_surface_mode = GL_SURFACE_IN_FRONT_OPAQUE;
+@@ -315,6 +322,50 @@ static void setup_mouselook(const WCHAR *appname)
+     }
+ }
+ 
++/***********************************************************************
++ *              setup_app_identity
++ *
++ * Heartport: the name and icon the Dock shows for this process.
++ * WINEMAC_APP_NAME renames the running application through LaunchServices'
++ * private _LSSetApplicationInformationItem (as Qt and the JDK do), resolved
++ * here so that a macOS without it only loses the name.  WINEMAC_APP_ICON is
++ * an image file (.icns or .png) that replaces the icon taken from the exe.
++ * Both unset: unchanged behaviour.
++ */
++static void setup_app_identity(void)
++{
++    const char *name = getenv("WINEMAC_APP_NAME");
++    const char *icon = getenv("WINEMAC_APP_ICON");
++
++    if (icon && *icon)
++    {
++        app_icon_path = CFStringCreateWithFileSystemRepresentation(NULL, icon);
++        TRACE("Dock icon from %s\n", debugstr_a(icon));
++    }
++
++    if (name && *name)
++    {
++        void *ls = dlopen("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/LaunchServices",
++                          RTLD_LAZY | RTLD_LOCAL);
++        CFStringRef *key;
++
++        if (!ls) ls = RTLD_DEFAULT;
++        key = dlsym(ls, "_kLSDisplayNameKey");
++        app_set_information_item = dlsym(ls, "_LSSetApplicationInformationItem");
++        app_current_asn = dlsym(ls, "_LSGetCurrentApplicationASN");
++        if (!key || !*key || !app_set_information_item || !app_current_asn)
++        {
++            TRACE("LaunchServices cannot rename the application; Dock name for %s unchanged\n", debugstr_a(name));
++            app_set_information_item = NULL;
++            app_current_asn = NULL;
++            return;
++        }
++        app_display_name_key = *key;
++        app_display_name = CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
++        TRACE("Dock name %s\n", debugstr_a(name));
++    }
++}
++
+ static void setup_options(void)
+ {
+     static const WCHAR macdriverW[] = {'\\','M','a','c',' ','D','r','i','v','e','r',0};
+@@ -332,6 +383,7 @@ static void setup_options(void)
+     if ((p = wcsrchr(appname, '\\'))) appname = p + 1;
+     len = lstrlenW(appname);
+     setup_mouselook(appname);
++    setup_app_identity();
+ 
+     if (len && len < MAX_PATH)
+     {
