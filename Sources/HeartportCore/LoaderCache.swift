@@ -15,6 +15,15 @@ public enum LoaderCache {
         return URL(fileURLWithPath: String(cString: buffer), isDirectory: true)
     }
 
+    /// The loader cache entry's `ntdll.so` link resolves to a path inside `dir` (canonical,
+    /// e.g. `<data>/runtime`): the programs in that entry run on one of our runtimes.
+    public static func entry(_ entry: URL, resolvesInto dir: String) -> Bool {
+        let link = entry.appendingPathComponent("ntdll.so")
+        guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: link.path) else { return false }
+        let resolved = target.hasPrefix("/") ? target : entry.appendingPathComponent(target).path
+        return LiveProcesses.canonical(resolved).hasPrefix(dir + "/")
+    }
+
     /// Removes every `winetemp-*` entry in `tempDir` whose `ntdll.so` symlink is dangling.
     /// Returns the removed directories. Entries without an `ntdll.so` link are left alone.
     @discardableResult

@@ -110,15 +110,18 @@ public struct StatusReport: Codable, Sendable {
         case .installed(let c): game.state = "installed"; fill(c)
         }
 
-        let snap = SessionSnapshot.take(paths)
-        let g = snap.game
-        let session = SessionStatus(alive: snap.isAlive, wineserverPIDs: snap.wineservers.map(\.pid), game: g,
-                                    gameInModeBundle: g?.path.contains("/" + GameModeBundle.relativePath + "/") == true,
-                                    window: g.flatMap { WindowInfo.game(pid: $0.pid) },
-                                    launcherRunning: !snap.launcher.isEmpty, installerRunning: !snap.installer.isEmpty,
-                                    programs: snap.windowsPrograms.map { "\($0.pid) \($0.argv0 ?? "?")" })
+        let session = Self.session(from: SessionSnapshot.take(paths))
 
         return StatusReport(dataRoot: paths.dataRoot.path, rosetta: Rosetta.isInstalled, runtime: runtime, prefix: prefix,
                             taptap: taptap, game: game, session: session, state: AppState.load(paths))
+    }
+
+    public static func session(from snap: SessionSnapshot) -> SessionStatus {
+        let g = snap.game
+        return SessionStatus(alive: snap.isAlive, wineserverPIDs: snap.wineservers.map(\.pid), game: g,
+                             gameInModeBundle: g?.path.contains("/" + GameModeBundle.relativePath + "/") == true,
+                             window: g.flatMap { WindowInfo.game(pid: $0.pid) },
+                             launcherRunning: !snap.launcher.isEmpty, installerRunning: !snap.installer.isEmpty,
+                             programs: snap.windowsPrograms.map { "\($0.pid) \($0.argv0 ?? "?")" })
     }
 }

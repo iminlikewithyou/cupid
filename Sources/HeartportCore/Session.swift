@@ -29,11 +29,28 @@ public struct SessionSnapshot: Sendable {
         self.processes = processes; self.runtimesDir = runtimesDir; self.wineserverPath = wineserverPath
     }
 
-    /// Every process whose binary is inside `<data>/runtime/` (any version: they share the prefix).
-    public static func take(_ paths: Paths) -> SessionSnapshot {
+    /// Every process whose binary is inside `<data>/runtime/` (any version: they share the
+    /// prefix), plus every process CrossOver's loader re-executed from its cache
+    /// (`<darwin user temp>/winetemp-*/<exe>`, see `LoaderCache`) when that cache entry's
+    /// `ntdll.so` link resolves into `<data>/runtime/`. Every Windows program except the game
+    /// (which runs from xdt.app inside the runtime) runs from that cache.
+    public static func take(_ paths: Paths, loaderCacheDir: URL? = LoaderCache.darwinUserTempDir()) -> SessionSnapshot {
         let dir = LiveProcesses.canonical(paths.runtimesDir.path)
+        let cache = loaderCacheDir.map { LiveProcesses.canonical($0.path) }
+        var cacheEntryIsOurs: [String: Bool] = [:]
+        func isOurs(_ path: String) -> Bool {
+            if path.hasPrefix(dir + "/") { return true }
+            guard let cache, path.hasPrefix(cache + "/winetemp-") else { return false }
+            let rest = path.dropFirst(cache.count + 1)
+            guard let slash = rest.firstIndex(of: "/") else { return false }
+            let entry = cache + "/" + rest[..<slash]
+            if let known = cacheEntryIsOurs[entry] { return known }
+            let ours = LoaderCache.entry(URL(fileURLWithPath: entry, isDirectory: true), resolvesInto: dir)
+            cacheEntryIsOurs[entry] = ours
+            return ours
+        }
         let entries = LiveProcesses.allPIDs().compactMap { pid -> WineProcess? in
-            guard let path = LiveProcesses.path(pid), path.hasPrefix(dir + "/") else { return nil }
+            guard let path = LiveProcesses.path(pid), isOurs(path) else { return nil }
             return WineProcess(pid: pid, path: path, argv0: LiveProcesses.argv0(pid))
         }
         return SessionSnapshot(processes: entries, runtimesDir: dir, wineserverPath: LiveProcesses.canonical(paths.wineserver.path))
