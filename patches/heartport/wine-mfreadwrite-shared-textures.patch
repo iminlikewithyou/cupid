@@ -1,0 +1,29 @@
+diff --git a/dlls/mfreadwrite/reader.c b/dlls/mfreadwrite/reader.c
+index d7653c2..075e231 100644
+--- a/dlls/mfreadwrite/reader.c
++++ b/dlls/mfreadwrite/reader.c
+@@ -1955,13 +1955,22 @@ static HRESULT source_reader_create_sample_allocator_attributes(const struct sou
+         IMFAttributes **attributes)
+ {
+     UINT32 shared = 0, shared_without_mutex = 0;
++    BOOL have_shared, have_shared_without_mutex;
+     HRESULT hr;
+ 
+     if (FAILED(hr = MFCreateAttributes(attributes, 1)))
+         return hr;
+ 
+-    IMFAttributes_GetUINT32(reader->attributes, &MF_SA_D3D11_SHARED, &shared);
+-    IMFAttributes_GetUINT32(reader->attributes, &MF_SA_D3D11_SHARED_WITHOUT_MUTEX, &shared_without_mutex);
++    have_shared = SUCCEEDED(IMFAttributes_GetUINT32(reader->attributes, &MF_SA_D3D11_SHARED, &shared));
++    have_shared_without_mutex = SUCCEEDED(IMFAttributes_GetUINT32(reader->attributes, &MF_SA_D3D11_SHARED_WITHOUT_MUTEX,
++            &shared_without_mutex));
++
++    /* Heartport: on Windows the reader hands out the decoder's or video processor's own textures,
++     * which are shareable (the video processor sets MF_SA_D3D11_SHARED_WITHOUT_MUTEX on its output
++     * stream), and Unity's video player opens every frame through IDXGIResource::GetSharedHandle.
++     * Unless the application chose, make the reader's own samples shareable too. */
++    if (!have_shared && !have_shared_without_mutex)
++        shared_without_mutex = 1;
+ 
+     if (shared_without_mutex)
+         hr = IMFAttributes_SetUINT32(*attributes, &MF_SA_D3D11_SHARED_WITHOUT_MUTEX, TRUE);
