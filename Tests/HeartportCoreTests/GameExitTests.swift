@@ -37,4 +37,46 @@ final class GameExitTests: XCTestCase {
         XCTAssertEqual(f.runSeconds, 600)
         XCTAssertFalse(f.crashMarker) // a lingering crash handler is not a crash
     }
+
+    func testStartedByHeartport() {
+        let launch = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertTrue(GameExit.startedByHeartport(launched: launch, processStart: launch.addingTimeInterval(3)))
+        XCTAssertTrue(GameExit.startedByHeartport(launched: launch, processStart: launch.addingTimeInterval(-2)))
+        XCTAssertFalse(GameExit.startedByHeartport(launched: launch, processStart: launch.addingTimeInterval(3600)))
+        XCTAssertFalse(GameExit.startedByHeartport(launched: nil, processStart: launch))
+        XCTAssertTrue(GameExit.startedByHeartport(launched: nil, processStart: nil))
+        // The live start time of this process is readable and in the past.
+        let me = LiveProcesses.startTime(getpid())
+        XCTAssertNotNil(me)
+        XCTAssertLessThanOrEqual(me!.timeIntervalSinceNow, 0)
+    }
+
+    /// Session.stop ends TapTap first and writes its steps to the stop log (a copy of
+    /// /bin/sleep named TapTapGlobal.exe stands in; there is no wineserver).
+    func testStopEndsTapTapAndLogs() throws {
+        let fm = FileManager.default
+        let root = try tempDir()
+        defer { try? fm.removeItem(at: root) }
+        let paths = Paths(dataRoot: root)
+        let exe = paths.runtime.appendingPathComponent("lib/wine/TapTapGlobal.exe")
+        try fm.createDirectory(at: exe.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fm.copyItem(atPath: "/bin/sleep", toPath: exe.path)
+        let p = Process()
+        p.executableURL = exe
+        p.arguments = ["30"]
+        try p.run()
+        defer { if p.isRunning { p.terminate() }; p.waitUntilExit() }
+        var seen = false
+        for _ in 0..<50 where !seen { seen = !SessionSnapshot.take(paths).launcher.isEmpty; if !seen { Thread.sleep(forTimeInterval: 0.1) } }
+        XCTAssertTrue(seen)
+        let started = Date()
+        try Session.stop(paths: paths, log: Logs.stop(paths))
+        XCTAssertLessThan(Date().timeIntervalSince(started), 3)
+        p.waitUntilExit()
+        XCTAssertTrue(SessionSnapshot.take(paths).processes.isEmpty)
+        let log = try String(contentsOf: Logs.stop(paths), encoding: .utf8)
+        XCTAssertTrue(log.contains("stop: begin; 1 processes: taptapglobal.exe"), log)
+        XCTAssertTrue(log.contains("stop: TapTap ended"), log)
+        XCTAssertTrue(log.contains("stop: done"), log)
+    }
 }

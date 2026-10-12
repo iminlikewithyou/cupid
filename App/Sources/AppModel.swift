@@ -182,7 +182,17 @@ final class AppModel: ObservableObject {
         if let game = new.session.game {
             if watchedGame?.pid != game.pid {
                 let launched = new.state.lastLaunch.flatMap { ISO8601DateFormatter().date(from: $0) }
-                watchedGame = (game.pid, min(launched ?? Date(), Date()))
+                if GameExit.startedByHeartport(launched: launched, processStart: LiveProcesses.startTime(game.pid)) {
+                    watchedGame = (game.pid, min(launched ?? Date(), Date()))
+                } else {
+                    // TapTap's Start Game, or another way in: watch it like our own from now on.
+                    let now = Date()
+                    watchedGame = (game.pid, now)
+                    Logs.append(paths, "app: adopted a game started outside Heartport (pid \(game.pid))")
+                    if !previewing {
+                        _ = try? AppState.update(paths) { $0.lastLaunch = ISO8601DateFormatter().string(from: now) }
+                    }
+                }
             }
         } else if watchedGame != nil {
             gameExited()
@@ -217,10 +227,12 @@ final class AppModel: ObservableObject {
             }
             showWindow()
         }
+        let justDownloaded: Bool = if case .download? = old, case .ready? = phase { true } else { false }
         if activity == nil, !updatingGame, phase == .ready(.launcherOpen) || phase == .ready(.sessionBusy) {
             // The game is complete: TapTap (or a leftover program) is no longer needed, and its
-            // own Start Game would run Heartopia outside Heartport. Close it without asking.
-            finishUp()
+            // own Start Game would run Heartopia outside Heartport. Close it without asking,
+            // before anything else (the md5 check of a new download comes after).
+            finishUp(checkDownload: justDownloaded)
             return
         }
         if activity == nil, let since = launcherRestartPending, case .download = phase,
@@ -233,8 +245,9 @@ final class AppModel: ObservableObject {
         }
         guard !busy, let old, let phase else { return }
         switch (old, phase) {
-        case (.download, .ready):
-            confirmDownload()
+        case (.download, .ready(let state)):
+            if case .gameRunning = state { break } // started from TapTap: adopted above
+            finishUp(checkDownload: true)
         default:
             break
         }
@@ -461,11 +474,30 @@ final class AppModel: ObservableObject {
     }
 
     /// The download just completed: md5-sample it once (as `heartport install-game` does).
-    private func confirmDownload() {
+    /// Ends the session that is still open now that the game is complete (TapTap after the
+    /// download, or programs left over from an earlier session), with no confirmation, and
+    /// after a download md5-checks a sample of it once (as `heartport install-game` does).
+    private func finishUp(checkDownload: Bool) {
         let paths = paths
-        perform("Checking the downloaded files") { r -> String? in
-            r.line("Checking file sizes and a sample of md5 sums")
+        perform("Finishing up\u{2026}") { r -> String? in
+            let snapshot = SessionSnapshot.take(paths)
+            if snapshot.game == nil, snapshot.isAlive || !snapshot.processes.isEmpty {
+                r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
+                let started = Date()
+                Logs.append(paths, "app: game complete; ending the open session (\(snapshot.windowsPrograms.compactMap(\.programName).joined(separator: ", ")))")
+                do {
+                    try Session.stop(paths: paths, log: Logs.stop(paths))
+                    Logs.append(paths, String(format: "app: session ended in %.1f s", Date().timeIntervalSince(started)))
+                } catch {
+                    Logs.append(paths, String(format: "app: ending the session failed after %.1f s", Date().timeIntervalSince(started)))
+                    throw error
+                }
+            }
+            guard checkDownload else { return nil }
+            r.line("Checking the downloaded files")
+            let checked = Date()
             let state = GameInstall.state(paths)
+            Logs.append(paths, String(format: "app: download check took %.1f s", Date().timeIntervalSince(checked)))
             switch state {
             case .installed:
                 try AppState.update(paths) { $0.gameInstalled = true }
@@ -477,19 +509,6 @@ final class AppModel: ObservableObject {
             }
         } then: { problem in
             if let problem { self.failure = problem }
-        }
-    }
-
-    /// Ends the session that is still open now that the game is complete (TapTap after the
-    /// download, or programs left over from an earlier session). No confirmation.
-    private func finishUp() {
-        let paths = paths
-        perform("Finishing up\u{2026}") { r in
-            let snapshot = SessionSnapshot.take(paths)
-            guard snapshot.game == nil, snapshot.isAlive || !snapshot.processes.isEmpty else { return }
-            r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
-            Logs.append(paths, "app: game complete; ending the open session (\(snapshot.windowsPrograms.compactMap(\.programName).joined(separator: ", ")))")
-            try Session.stop(paths: paths, log: Logs.stop(paths))
         }
     }
 

@@ -44,7 +44,7 @@ public enum TapTapInstaller {
     public static func run(_ paths: Paths) throws -> Int32 {
         try SessionGuard.requireIdle(paths, to: "start the TapTap installer")
         let pid = try Wine(paths: paths).spawn([file(paths).path], cwd: paths.dataRoot, log: Logs.installer(paths))
-        try? AppState.update(paths) { $0.installerStarted = ISO8601DateFormatter().string(from: Date()) }
+        _ = try? AppState.update(paths) { $0.installerStarted = ISO8601DateFormatter().string(from: Date()) }
         return pid
     }
 }

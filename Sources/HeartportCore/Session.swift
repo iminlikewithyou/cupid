@@ -146,6 +146,14 @@ public enum LiveProcesses {
         return i < j ? String(decoding: buffer[i..<j], as: UTF8.self) : nil
     }
 
+    /// When the process started (proc_pidinfo PROC_PIDTBSDINFO).
+    public static func startTime(_ pid: Int32) -> Date? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(info.pbi_start_tvsec) + TimeInterval(info.pbi_start_tvusec) / 1_000_000)
+    }
+
     public static func canonical(_ path: String) -> String {
         URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
@@ -181,22 +189,52 @@ public struct WindowInfo: Sendable, Codable, Equatable {
 }
 
 public enum Session {
-    /// `wineserver -k` then `wineserver -w`, under the full environment.
+    /// Ends the session quickly, logging each step with its duration to `log`: TapTap's
+    /// processes first (SIGTERM, SIGKILL after 2 s; its Electron processes do not wait for a
+    /// graceful exit), then `wineserver -k` and `wineserver -w` under the full environment,
+    /// then any client that outlived the server.
     public static func stop(paths: Paths, log: URL) throws {
+        let started = Date()
+        func note(_ text: String) {
+            Logs.append(to: log, String(format: "stop: %@ (%.1f s)", text, Date().timeIntervalSince(started)))
+        }
+        let before = SessionSnapshot.take(paths)
+        note("begin; \(before.processes.count) processes: " + before.processes.map { $0.programName ?? "?" }.joined(separator: ", "))
+        let launcher = before.launcher.map(\.pid)
+        if !launcher.isEmpty {
+            let killed = terminate(launcher, grace: 2)
+            note("TapTap ended" + (killed > 0 ? " (\(killed) killed after 2 s)" : ""))
+        }
         let wine = Wine(paths: paths)
-        _ = try? wine.wineserver(["-k"], log: log, timeout: 30)
-        try wine.wineserver(["-w"], log: log, timeout: 60)
+        if SessionSnapshot.take(paths).isAlive {
+            _ = try? wine.wineserver(["-k"], log: log, timeout: 10)
+            note("wineserver -k")
+            try wine.wineserver(["-w"], log: log, timeout: 30)
+            note("wineserver -w")
+        }
         // Clients normally exit with their server, but a game under Rosetta has been seen to
         // outlive it (still running, parent 1). Finish them: SIGTERM, then SIGKILL.
-        for signal in [SIGTERM, SIGKILL] {
-            let leftovers = SessionSnapshot.take(paths).processes
-            if leftovers.isEmpty { return }
-            for process in leftovers { kill(process.pid, signal) }
-            let deadline = Date().addingTimeInterval(5)
-            while Date() < deadline, !SessionSnapshot.take(paths).processes.isEmpty {
-                Thread.sleep(forTimeInterval: 0.25)
-            }
+        let leftovers = SessionSnapshot.take(paths).processes.map(\.pid)
+        if !leftovers.isEmpty {
+            let killed = terminate(leftovers, grace: 5)
+            note("\(leftovers.count) leftover processes ended (\(killed) killed)")
         }
+        note("done")
+    }
+
+    /// SIGTERM to `pids`, then SIGKILL to those still alive after `grace` seconds; waits up to
+    /// 2 s more for them to go. Returns how many needed SIGKILL.
+    @discardableResult
+    public static func terminate(_ pids: [Int32], grace: TimeInterval) -> Int {
+        func alive() -> [Int32] { pids.filter { kill($0, 0) == 0 } }
+        for pid in pids { kill(pid, SIGTERM) }
+        var deadline = Date().addingTimeInterval(grace)
+        while Date() < deadline, !alive().isEmpty { Thread.sleep(forTimeInterval: 0.1) }
+        let stubborn = alive()
+        for pid in stubborn { kill(pid, SIGKILL) }
+        deadline = Date().addingTimeInterval(2)
+        while Date() < deadline, !alive().isEmpty { Thread.sleep(forTimeInterval: 0.1) }
+        return stubborn.count
     }
 
     /// Wait until no wineserver of our runtimes is alive.

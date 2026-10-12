@@ -21,7 +21,12 @@ public enum Logs {
 
     /// Append a timestamped line to logs/heartport.log (best effort).
     public static func append(_ paths: Paths, _ line: String) {
-        guard let handle = try? ProcessRunner.appendHandle(heartport(paths)) else { return }
+        append(to: heartport(paths), line)
+    }
+
+    /// Append a timestamped line to `log` (best effort).
+    public static func append(to log: URL, _ line: String) {
+        guard let handle = try? ProcessRunner.appendHandle(log) else { return }
         defer { try? handle.close() }
         let stamp = ISO8601DateFormatter().string(from: Date())
         try? handle.write(contentsOf: Data("\(stamp) \(line)\n".utf8))

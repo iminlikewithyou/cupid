@@ -17,6 +17,16 @@ import Foundation
 /// into crashes. Not yet checked against a live crash or quit; verify the next time the game
 /// is played.
 public enum GameExit {
+    /// The game process started within two minutes after Heartport's last recorded launch
+    /// (`start.exe` takes a moment to create it); otherwise it was started outside Heartport
+    /// (TapTap's Start Game) and the app adopts it. An unknown start time counts as Heartport's.
+    public static func startedByHeartport(launched: Date?, processStart: Date?) -> Bool {
+        guard let processStart else { return true }
+        guard let launched else { return false }
+        let delay = processStart.timeIntervalSince(launched)
+        return delay > -5 && delay < 120
+    }
+
     public enum Kind: Sendable, Equatable {
         case normal
         case crash(reason: String)
