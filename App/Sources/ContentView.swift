@@ -201,8 +201,7 @@ private struct WelcomeView: View {
                 .interpolation(.high)
                 .frame(width: 128, height: 128)
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
-                .scaleEffect(appeared || reduceMotion ? 1 : 0.9)
-                .entrance(appeared, delay: 0)
+                .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
                 Text("Welcome to Heartport")
@@ -212,14 +211,14 @@ private struct WelcomeView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.top, 24)
-            .entrance(appeared, delay: 0.1)
+            .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
             Text("Heartport sets up everything Heartopia needs on this Mac in a few steps. Two of them need a few clicks from you; the rest is automatic.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 16)
-                .entrance(appeared, delay: 0.18)
+                .entrance(appeared, delay: 0.5, reduceMotion: reduceMotion)
             HStack(alignment: .top, spacing: 16) {
                 Fact("clock", "About 15 minutes, plus the game download")
                 if short, let free = model.freeBytes {
@@ -230,7 +229,7 @@ private struct WelcomeView: View {
                 Fact("lock.shield", "Nothing else on your Mac changes")
             }
             .padding(.top, 32)
-            .entrance(appeared, delay: 0.26)
+            .entrance(appeared, delay: 0.65, reduceMotion: reduceMotion)
             Button { model.getStarted() } label: {
                 Text("Get Started").frame(width: 200)
             }
@@ -239,13 +238,17 @@ private struct WelcomeView: View {
             .keyboardShortcut(.defaultAction)
             .disabled(short)
             .padding(.top, 32)
-            .entrance(appeared, delay: 0.34)
+            .entrance(appeared, delay: 0.8, reduceMotion: reduceMotion)
         }
         .padding(.top, 56) // under the traffic lights
         .padding(.horizontal, 32)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity)
-        .onAppear { appeared = true }
+        .task {
+            // Start once the window is on screen and sized, so the entrance is seen.
+            try? await Task.sleep(for: .milliseconds(200))
+            appeared = true
+        }
     }
 }
 
@@ -262,8 +265,7 @@ private struct AllSetView: View {
                 .interpolation(.high)
                 .frame(width: 128, height: 128)
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
-                .scaleEffect(appeared || reduceMotion ? 1 : 0.9)
-                .entrance(appeared, delay: 0)
+                .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
                 Text("Heartopia is ready")
@@ -273,14 +275,14 @@ private struct AllSetView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.top, 24)
-            .entrance(appeared, delay: 0.1)
+            .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
             Text("From now on, opening Heartport starts Heartopia. Hold Option while opening it to reach Settings instead.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 16)
-                .entrance(appeared, delay: 0.18)
+                .entrance(appeared, delay: 0.5, reduceMotion: reduceMotion)
             Button { model.play() } label: {
                 Label("Play", systemImage: "play.fill").frame(width: 200)
             }
@@ -289,7 +291,7 @@ private struct AllSetView: View {
             .keyboardShortcut(.defaultAction)
             .disabled(model.busy)
             .padding(.top, 32)
-            .entrance(appeared, delay: 0.26)
+            .entrance(appeared, delay: 0.65, reduceMotion: reduceMotion)
             Callouts(model: model)
                 .frame(maxWidth: 420)
         }
@@ -297,7 +299,11 @@ private struct AllSetView: View {
         .padding(.horizontal, 32)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity)
-        .onAppear { appeared = true }
+        .task {
+            // Start once the window is on screen and sized, so the entrance is seen.
+            try? await Task.sleep(for: .milliseconds(200))
+            appeared = true
+        }
     }
 }
 
@@ -325,11 +331,20 @@ private struct Fact: View {
 }
 
 private extension View {
-    /// Fades in on first show, staggered by `delay` (about 0.5 s for the whole welcome screen).
-    /// With Reduce Motion the fade stays and the scale is dropped by the caller.
-    func entrance(_ shown: Bool, delay: Double) -> some View {
+    /// The welcome and all-set icon: fades in while it springs up from 80% (about 0.8 s).
+    /// With Reduce Motion it only fades.
+    func iconEntrance(_ shown: Bool, reduceMotion: Bool) -> some View {
+        scaleEffect(shown || reduceMotion ? 1 : 0.8)
+            .opacity(shown ? 1 : 0)
+            .animation(reduceMotion ? .easeOut(duration: 0.5) : .spring(response: 0.75, dampingFraction: 0.62), value: shown)
+    }
+
+    /// The text, facts, and button after the icon: each fades in (and rises 8 pt unless Reduce
+    /// Motion is on), staggered by `delay`; the last ends about 1.2 s after the window appears.
+    func entrance(_ shown: Bool, delay: Double, reduceMotion: Bool) -> some View {
         opacity(shown ? 1 : 0)
-            .animation(.easeOut(duration: 0.3).delay(delay), value: shown)
+            .offset(y: shown || reduceMotion ? 0 : 8)
+            .animation(.easeOut(duration: 0.4).delay(delay), value: shown)
     }
 }
 
