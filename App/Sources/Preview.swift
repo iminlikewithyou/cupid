@@ -1,9 +1,9 @@
 import Foundation
-import HeartportCore
+import CupidCore
 
-/// HEARTPORT_PREVIEW_PHASE=<name> renders one setup state with sample data, for screenshots and
+/// CUPID_PREVIEW_PHASE=<name> renders one setup state with sample data, for screenshots and
 /// design review. The model then polls nothing and every action is inert (AppModel.previewing).
-/// HEARTPORT_PREVIEW_SETTINGS=1 also opens the Settings window, HEARTPORT_PREVIEW_ABOUT=1 the
+/// CUPID_PREVIEW_SETTINGS=1 also opens the Settings window, CUPID_PREVIEW_ABOUT=1 the
 /// About window.
 struct Preview {
     var phase: SetupPhase?
@@ -141,7 +141,7 @@ struct Preview {
     /// then filled in as an installed game (HUD off, as on a fresh install).
     private static func sampleReport(installed: Bool) -> StatusReport {
         let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("heartport-preview-does-not-exist-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("cupid-preview-does-not-exist-\(UUID().uuidString)", isDirectory: true)
         var r = StatusReport.gather(Paths(dataRoot: root))
         guard installed else { return r }
         r.runtime.installedVersion = r.runtime.expectedVersion

@@ -9,7 +9,7 @@
 #    with ditto, detaches.
 # 3. Checks the tarball's sha256 and moves it to Resources/runtime/runtime.tar.gz.
 # --verify additionally extracts it to a temporary directory and verifies every file against
-# its runtime.json with `heartport verify-runtime` (builds the CLI if needed).
+# its runtime.json with `cupid verify-runtime` (builds the CLI if needed).
 # Re-running is a no-op once the tarball is in place and matches.
 set -euo pipefail
 
@@ -53,7 +53,7 @@ else
     fi
     echo "DMG sha256 OK: $DMG_SHA256"
 
-    work="$(mktemp -d "${TMPDIR:-/tmp}/heartport-fetch.XXXXXX")"
+    work="$(mktemp -d "${TMPDIR:-/tmp}/cupid-fetch.XXXXXX")"
     mnt="$work/mnt"; mkdir -p "$mnt"
     cleanup() { hdiutil detach -quiet "$mnt" 2>/dev/null || true; rm -rf "$work"; }
     trap cleanup EXIT
@@ -70,7 +70,7 @@ else
 fi
 
 if [ "$verify" = 1 ]; then
-    cli="$REPO/.build/debug/heartport"
-    [ -x "$cli" ] || (cd "$REPO" && swift build --product heartport >/dev/null)
+    cli="$REPO/.build/debug/cupid"
+    [ -x "$cli" ] || (cd "$REPO" && swift build --product cupid >/dev/null)
     "$cli" verify-runtime --archive "$OUT"
 fi

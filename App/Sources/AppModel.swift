@@ -1,5 +1,5 @@
 import AppKit
-import HeartportCore
+import CupidCore
 
 /// Set from the UI, read by background work between steps.
 final class CancelFlag: @unchecked Sendable {
@@ -32,7 +32,7 @@ struct Reporter: Sendable {
     }
     var isCancelled: Bool { flag.isCancelled }
     func checkCancelled() throws {
-        if flag.isCancelled { throw HeartportError(.cancelled, "Cancelled.") }
+        if flag.isCancelled { throw CupidError(.cancelled, "Cancelled.") }
     }
 }
 
@@ -71,7 +71,7 @@ final class AppModel: ObservableObject {
             resizeWindow(contentHeight, oldValue > 0 && windowIsVisible())
         }
     }
-    /// HEARTPORT_PREVIEW_PHASE: a fixed sample state for screenshots. Nothing is polled or run.
+    /// CUPID_PREVIEW_PHASE: a fixed sample state for screenshots. Nothing is polled or run.
     private(set) var previewing = false
     private var previewHasLogs: Bool?
 
@@ -90,21 +90,21 @@ final class AppModel: ObservableObject {
     private var firstRefreshDone = false
     private var timer: Timer?
     /// Brings each installer stage's window to the front while the TapTap step has the installer
-    /// at work (fresh-install run 4: the later stages opened behind Heartport).
+    /// at work (fresh-install run 4: the later stages opened behind Cupid).
     private var installerWatch: Timer?
     /// Installer pids already activated during this TapTap step.
     private var installerActivated: Set<Int32> = []
     private var installerCheckRunning = false
-    /// This app instance started (or is starting) the TapTap launcher with Heartport's flags.
+    /// This app instance started (or is starting) the TapTap launcher with Cupid's flags.
     private var startedLauncher = false
     /// The launcher was running at the last refresh.
     private var launcherWasRunning = false
-    /// TapTap appeared without Heartport starting it (the installer's Launch button): it renders
-    /// blank without Heartport's flags, so it is restarted once the installer is gone. Set when
+    /// TapTap appeared without Cupid starting it (the installer's Launch button): it renders
+    /// blank without Cupid's flags, so it is restarted once the installer is gone. Set when
     /// it was first seen; the card shows "Opening TapTap…" meanwhile.
     @Published private(set) var launcherRestartPending: Date?
     private var autoLaunch: Bool
-    /// The game Heartport is watching, and when it was launched (for GameExit's short-run rule).
+    /// The game Cupid is watching, and when it was launched (for GameExit's short-run rule).
     private var watchedGame: (pid: Int32, launched: Date)?
 
     init(paths: Paths, autoLaunch: Bool) {
@@ -190,13 +190,13 @@ final class AppModel: ObservableObject {
         if let game = new.session.game {
             if watchedGame?.pid != game.pid {
                 let launched = new.state.lastLaunch.flatMap { ISO8601DateFormatter().date(from: $0) }
-                if GameExit.startedByHeartport(launched: launched, processStart: LiveProcesses.startTime(game.pid)) {
+                if GameExit.startedByCupid(launched: launched, processStart: LiveProcesses.startTime(game.pid)) {
                     watchedGame = (game.pid, min(launched ?? Date(), Date()))
                 } else {
                     // TapTap's Start Game, or another way in: watch it like our own from now on.
                     let now = Date()
                     watchedGame = (game.pid, now)
-                    Logs.append(paths, "app: adopted a game started outside Heartport (pid \(game.pid))")
+                    Logs.append(paths, "app: adopted a game started outside Cupid (pid \(game.pid))")
                     if !previewing {
                         _ = try? AppState.update(paths) { $0.lastLaunch = ISO8601DateFormatter().string(from: now) }
                     }
@@ -243,14 +243,14 @@ final class AppModel: ObservableObject {
         let justDownloaded: Bool = if case .download? = old, case .ready? = phase { true } else { false }
         if activity == nil, !updatingGame, phase == .ready(.launcherOpen) || phase == .ready(.sessionBusy) {
             // The game is complete: TapTap (or a leftover program) is no longer needed, and its
-            // own Start Game would run Heartopia outside Heartport. Close it without asking,
+            // own Start Game would run Heartopia outside Cupid. Close it without asking,
             // before anything else (the md5 check of a new download comes after).
             finishUp(checkDownload: justDownloaded)
             return
         }
         if activity == nil, let since = launcherRestartPending, case .download = phase,
            !new.session.installerRunning || Date().timeIntervalSince(since) > 10 {
-            // The installer's Launch opened TapTap without Heartport's flags (blank window). Once
+            // The installer's Launch opened TapTap without Cupid's flags (blank window). Once
             // the installer has closed (or after 10 s: TapTap is installed by then), restart it.
             launcherRestartPending = nil
             openLauncherForDownload(restart: true)
@@ -269,12 +269,12 @@ final class AppModel: ObservableObject {
     /// Tracks who started TapTap (see `launcherRestartPending`).
     private func noteLauncher(_ running: Bool, first: Bool) {
         defer { launcherWasRunning = running }
-        if first { return } // already open when Heartport started: leave it alone
+        if first { return } // already open when Cupid started: leave it alone
         if !running {
             launcherRestartPending = nil
             if activity == nil { startedLauncher = false }
         } else if !launcherWasRunning, !startedLauncher, launcherRestartPending == nil {
-            Logs.append(paths, "app: TapTap opened without Heartport's settings; restarting it")
+            Logs.append(paths, "app: TapTap opened without Cupid's settings; restarting it")
             launcherRestartPending = Date()
         }
     }
@@ -302,7 +302,7 @@ final class AppModel: ObservableObject {
                         switch result {
                         case .success(let value): then(value)
                         case .failure(let error):
-                            let cancelled = (error as? HeartportError)?.kind == .cancelled
+                            let cancelled = (error as? CupidError)?.kind == .cancelled
                             if !cancelled { Logs.append(self.paths, "app: \(title) failed: \(Self.message(error))") }
                             self.failure = cancelled ? nil : [failureTitle, Self.windowMessage(error)].compactMap { $0 }.joined(separator: " ")
                             if cancelled { self.notice = "\(title): cancelled." }
@@ -322,17 +322,17 @@ final class AppModel: ObservableObject {
     }
 
     static func message(_ error: Error) -> String {
-        if let e = error as? HeartportError { return e.message }
+        if let e = error as? CupidError { return e.message }
         return error.localizedDescription
     }
 
     /// The window's wording for a failure: core messages that name processes, pids or commands
     /// become plain text (the log keeps `message`).
     static func windowMessage(_ error: Error) -> String {
-        if let e = error as? HeartportError {
+        if let e = error as? CupidError {
             switch e.kind {
-            case .sessionAlive: return "Heartport is still finishing the previous step. Try again in a moment."
-            case .timeout, .process: return "Heartport couldn't finish the previous step. Try again."
+            case .sessionAlive: return "Cupid is still finishing the previous step. Try again in a moment."
+            case .timeout, .process: return "Cupid couldn't finish the previous step. Try again."
             default: break
             }
         }
@@ -421,7 +421,7 @@ final class AppModel: ObservableObject {
             case .changed(let bytes, let sha)?:
                 if AppState.load(self.paths).acceptedInstallerSHA256 == sha { self.runInstaller(); return }
                 self.confirm("TapTap updated its installer",
-                             "The downloaded installer (\(bytes) bytes, sha256 \(sha)) is not the one Heartport was tested with (\(TapTapInstaller.bytes) bytes). Run it anyway?",
+                             "The downloaded installer (\(bytes) bytes, sha256 \(sha)) is not the one Cupid was tested with (\(TapTapInstaller.bytes) bytes). Run it anyway?",
                              button: "Run Installer") {
                     _ = try? AppState.update(self.paths) { $0.acceptedInstallerSHA256 = sha }
                     self.runInstaller()
@@ -430,7 +430,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Watches while the TapTap step shows the installer at work (or Heartport is starting it);
+    /// Watches while the TapTap step shows the installer at work (or Cupid is starting it);
     /// stops, forgetting the activated pids, when the step ends.
     private func updateInstallerWatch(starting: Bool = false) {
         guard !previewing else { return }
@@ -507,11 +507,11 @@ final class AppModel: ObservableObject {
             let started = Date()
             let snapshot = SessionSnapshot.take(paths)
             if let game = snapshot.game {
-                throw HeartportError(.sessionAlive, "Heartopia is running (pid \(game.pid)); quit it first.")
+                throw CupidError(.sessionAlive, "Heartopia is running (pid \(game.pid)); quit it first.")
             }
             if restart, snapshot.isAlive {
                 r.line("Restarting TapTap")
-                Logs.append(paths, "app: restarting TapTap with Heartport's settings")
+                Logs.append(paths, "app: restarting TapTap with Cupid's settings")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             } else if snapshot.launcher.isEmpty, snapshot.isAlive {
                 // The installer's session takes a few seconds to wind down after it closes.
@@ -530,10 +530,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// The download just completed: md5-sample it once (as `heartport install-game` does).
+    /// The download just completed: md5-sample it once (as `cupid install-game` does).
     /// Ends the session that is still open now that the game is complete (TapTap after the
     /// download, or programs left over from an earlier session), with no confirmation, and
-    /// after a download md5-checks a sample of it once (as `heartport install-game` does).
+    /// after a download md5-checks a sample of it once (as `cupid install-game` does).
     private func finishUp(checkDownload: Bool) {
         let paths = paths
         perform("Finishing up\u{2026}") { r -> String? in
@@ -600,7 +600,7 @@ final class AppModel: ObservableObject {
         perform("Starting Heartopia", failureTitle: "Heartopia didn't start.") { r in
             if stopFirst {
                 let snapshot = SessionSnapshot.take(paths)
-                if let game = snapshot.game { throw HeartportError(.sessionAlive, "Heartopia is already running (pid \(game.pid)).") }
+                if let game = snapshot.game { throw CupidError(.sessionAlive, "Heartopia is already running (pid \(game.pid)).") }
                 r.line(snapshot.launcher.isEmpty ? "Closing the previous session" : "Closing TapTap")
                 try Session.stop(paths: paths, log: Logs.stop(paths))
             }
@@ -698,11 +698,11 @@ final class AppModel: ObservableObject {
     func resetGraphics() {
         let count = RegistrySeeds.all.count
         confirm("Reset graphics settings?",
-                "Puts Heartport's recommended graphics settings back, replacing any changes made in the game.",
+                "Puts Cupid's recommended graphics settings back, replacing any changes made in the game.",
                 button: "Reset") {
             let paths = self.paths
             self.perform("Resetting graphics settings") { r in
-                guard PrefixSetup(paths: paths).exists else { throw HeartportError(.prefixMissing, "The Wine prefix does not exist yet.") }
+                guard PrefixSetup(paths: paths).exists else { throw CupidError(.prefixMissing, "The Wine prefix does not exist yet.") }
                 try SessionGuard.requireIdle(paths, to: "reset the graphics settings")
                 try PrefixSetup(paths: paths).apply(RegistrySeeds.all.map(PrefixSetup.Step.seed), log: Operations.detail(paths))
                 Logs.append(paths, "app: reset-graphics (\(count) values)")
@@ -723,8 +723,8 @@ final class AppModel: ObservableObject {
     }
 
     func repair() {
-        confirm("Repair Heartport?",
-                "Reinstalls Heartport's runtime, re-checks the Windows environment, and checks every Heartopia file. Your game data and settings are kept. This can take several minutes.",
+        confirm("Repair Cupid?",
+                "Reinstalls Cupid's runtime, re-checks the Windows environment, and checks every Heartopia file. Your game data and settings are kept. This can take several minutes.",
                 button: "Repair") {
             let paths = self.paths
             self.perform("Repairing", cancellable: true) { r in
@@ -738,7 +738,7 @@ final class AppModel: ObservableObject {
 
     func uninstall() {
         confirm("Uninstall Heartopia and its Windows environment?",
-                "Moves \(paths.dataRoot.path) to the Trash: the Wine runtime, the Windows prefix with TapTap and Heartopia (about 15 GB), caches, and logs. Heartport itself stays installed; open it again to set everything up from scratch.",
+                "Moves \(paths.dataRoot.path) to the Trash: the Wine runtime, the Windows prefix with TapTap and Heartopia (about 15 GB), caches, and logs. Cupid itself stays installed; open it again to set everything up from scratch.",
                 button: "Move to Trash", destructive: true) {
             let paths = self.paths
             self.perform("Uninstalling") { r -> String in
@@ -748,7 +748,7 @@ final class AppModel: ObservableObject {
                 r.line("Moving \(paths.dataRoot.lastPathComponent) to the Trash")
                 // No log line afterwards: writing one would recreate the data folder.
                 try fm.trashItem(at: paths.dataRoot, resultingItemURL: nil)
-                return "Heartport's data folder is in the Trash."
+                return "Cupid's data folder is in the Trash."
             } then: { message in
                 self.notice = message
             }

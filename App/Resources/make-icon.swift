@@ -1,4 +1,4 @@
-// make-icon.swift OUT.iconset: draws Heartport's icon at every iconset size: a rounded square on
+// make-icon.swift OUT.iconset: draws Cupid's icon at every iconset size: a rounded square on
 // Apple's macOS icon grid with a coral-pink to warm-red vertical gradient, a white heart with a
 // soft inner shadow, and a short white "port" bar beneath it. Original drawing; no game or
 // TapTap artwork.

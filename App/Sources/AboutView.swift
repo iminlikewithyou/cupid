@@ -1,5 +1,5 @@
 import AppKit
-import HeartportCore
+import CupidCore
 import SwiftUI
 
 /// The About window: the app, the installed game and runtime, macOS, and credits.
@@ -16,9 +16,9 @@ struct AboutView: View {
         return "Version \(short)"
     }
 
-    /// Info.plist HeartportProjectURL, when set.
+    /// Info.plist CupidProjectURL, when set.
     static var projectURL: URL? {
-        (info["HeartportProjectURL"] as? String).flatMap { $0.isEmpty ? nil : URL(string: $0) }
+        (info["CupidProjectURL"] as? String).flatMap { $0.isEmpty ? nil : URL(string: $0) }
     }
 
     /// Contents/Resources/Licenses of the app bundle.
@@ -39,7 +39,7 @@ struct AboutView: View {
         return text
     }
 
-    /// The bundled runtime carries FFmpeg and GStreamer (Heartport's builds from 20261012.3).
+    /// The bundled runtime carries FFmpeg and GStreamer (Cupid's builds from 20261012.3).
     static var runtimeHasVideo: Bool {
         guard let lic = licensesFolder else { return false }
         let fm = FileManager.default
@@ -49,10 +49,10 @@ struct AboutView: View {
 
     static var credits: String {
         let video = runtimeHasVideo ? ", plus GStreamer and FFmpeg for video" : ""
-        return "Heartport is built on Recall by AsherJN (Apache License 2.0). Its runtime is Wine, built from "
+        return "Cupid is built on Recall by AsherJN (Apache License 2.0). Its runtime is Wine, built from "
             + "CodeWeavers\u{2019} CrossOver source, with DXMT (3Shain\u{2019}s Direct3D-to-Metal layer, in "
             + "NerRobDog\u{2019}s fork) and Apple\u{2019}s Game Porting Toolkit library\(video). "
-            + "Heartopia is XD\u{2019}s game, downloaded through TapTap. Heartport is an independent project, "
+            + "Heartopia is XD\u{2019}s game, downloaded through TapTap. Cupid is an independent project, "
             + "not affiliated with XD, TapTap, Apple, or CodeWeavers."
     }
 
@@ -106,7 +106,7 @@ struct AboutView: View {
                 .interpolation(.high)
                 .frame(width: 96, height: 96)
                 .accessibilityHidden(true)
-            Text("Heartport")
+            Text("Cupid")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(.primary)
             Text("Heartopia ported to Mac")

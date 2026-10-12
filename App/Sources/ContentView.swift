@@ -1,11 +1,11 @@
 import AppKit
-import HeartportCore
+import CupidCore
 import SwiftUI
 
 // The setup window: a hero header, a row of step dots, one card for the current step, and
 // inline callouts for failures and notices. Presentation only; every action goes to AppModel.
 
-/// Heartport's colours, taken from the app icon.
+/// Cupid's colours, taken from the app icon.
 enum Brand {
     /// The icon's coral pink, used for the hero wash.
     static let pink = Color(nsColor: NSColor(srgbRed: 1.00, green: 0.47, blue: 0.56, alpha: 1))
@@ -103,7 +103,7 @@ private struct HeroHeader: View {
                 .frame(width: 72, height: 72)
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
                 .accessibilityHidden(true)
-            Text("Heartport")
+            Text("Cupid")
                 .font(.largeTitle.weight(.bold))
                 .padding(.top, 8)
         }
@@ -204,7 +204,7 @@ private struct WelcomeView: View {
                 .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
-                Text("Welcome to Heartport")
+                Text("Welcome to Cupid")
                     .font(.system(size: 34, weight: .bold))
                 Text("Heartopia ported to Mac")
                     .font(.title3)
@@ -212,7 +212,7 @@ private struct WelcomeView: View {
             }
             .padding(.top, 24)
             .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
-            Text("Heartport sets up everything Heartopia needs on this Mac in a few steps. Two of them need a few clicks from you; the rest is automatic.")
+            Text("Cupid sets up everything Heartopia needs on this Mac in a few steps. Two of them need a few clicks from you; the rest is automatic.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
@@ -267,7 +267,7 @@ private struct AllSetView: View {
                 .iconEntrance(appeared, reduceMotion: reduceMotion)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
-                Text("Heartport is ready")
+                Text("Cupid is ready")
                     .font(.system(size: 34, weight: .bold))
                 Text("Heartopia is all set up")
                     .font(.title3)
@@ -275,7 +275,7 @@ private struct AllSetView: View {
             }
             .padding(.top, 24)
             .entrance(appeared, delay: 0.35, reduceMotion: reduceMotion)
-            Text("From now on, opening Heartport starts Heartopia. Hold Option while opening it to reach Settings instead.")
+            Text("From now on, opening Cupid starts Heartopia. Hold Option while opening it to reach Settings instead.")
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 400)
@@ -398,7 +398,7 @@ private struct StepCard: View {
     // MARK: text
 
     /// TapTap or another program of ours is still open (ready.launcherOpen / .sessionBusy) and
-    /// Heartport is about to close it (not when Update Game opened TapTap).
+    /// Cupid is about to close it (not when Update Game opened TapTap).
     private var finishingUp: Bool {
         model.shownActivity == nil && !model.updatingGame
             && (model.phase == .ready(.launcherOpen) || model.phase == .ready(.sessionBusy))
@@ -423,15 +423,15 @@ private struct StepCard: View {
     private var description: String {
         switch model.phase {
         case nil:
-            return "Heartport is looking at what is already installed."
+            return "Cupid is looking at what is already installed."
         case .rosettaMissing?:
-            return "Heartopia is a Windows game for Intel processors, and Heartport runs it through Rosetta 2, Apple's translator. It isn't installed on this Mac yet."
+            return "Heartopia is a Windows game for Intel processors, and Cupid runs it through Rosetta 2, Apple's translator. It isn't installed on this Mac yet."
         case .runtime?:
-            return "Heartport installs the layer that lets Heartopia, a Windows game, run on this Mac."
+            return "Cupid installs the layer that lets Heartopia, a Windows game, run on this Mac."
         case .prefix(let exists)?:
             return exists
                 ? "A few settings need updating."
-                : "Next, Heartport sets up the Windows environment Heartopia runs in."
+                : "Next, Cupid sets up the Windows environment Heartopia runs in."
         case .taptap?:
             return "Heartopia comes from TapTap, a game launcher like Steam. Its installer needs a few clicks from you."
         case .download?:
@@ -439,7 +439,7 @@ private struct StepCard: View {
         case .ready(.gameRunning)?:
             return "Heartopia is open in its own window."
         case .ready(.launcherOpen)?, .ready(.sessionBusy)?:
-            // Update Game opened TapTap; Play closes it. Otherwise Heartport closes it by itself.
+            // Update Game opened TapTap; Play closes it. Otherwise Cupid closes it by itself.
             return model.updatingGame ? "If TapTap offers a Heartopia update, run it. Then press Play." : ""
         case .ready(.idle)?:
             return ""
@@ -478,7 +478,7 @@ private struct StepCard: View {
                 if installerRunning {
                     StatusRow(ok: true, "The installer is open in its own window.")
                 } else if model.report?.session.alive == true {
-                    DetailRow("hourglass", "Heartport is finishing the previous step.")
+                    DetailRow("hourglass", "Cupid is finishing the previous step.")
                 } else {
                     DetailRow("macwindow", "TapTap's installer opens in a separate window, \u{201C}Welcome to TapTap Setup\u{201D}.")
                 }
@@ -512,7 +512,7 @@ private struct StepCard: View {
                     DetailRow("internaldrive", "The game is about 13 GB")
                 }
                 if d.incomplete {
-                    StatusRow(ok: false, "Some game files are damaged. Use TapTap's verify, or Repair in the Heartport menu.")
+                    StatusRow(ok: false, "Some game files are damaged. Use TapTap's verify, or Repair in the Cupid menu.")
                 }
     }
 
@@ -582,7 +582,7 @@ private struct StepCard: View {
         case .download(let d)?:
             return d.launcherRunning
                 ? CardAction(title: "Restart TapTap", isDefault: false,
-                             help: "If TapTap's window is blank, restart it with Heartport's settings.") {
+                             help: "If TapTap's window is blank, restart it with Cupid's settings.") {
                     model.openLauncherForDownload(restart: true)
                 }
                 : CardAction(title: "Open TapTap") { model.openLauncherForDownload(restart: false) }
@@ -606,7 +606,7 @@ private struct StepCard: View {
                 Button("Show Logs") { model.showLogs() }
             } else {
                 Button("Show in Finder") { if !model.previewing { revealInFinder(model.paths.dataRoot) } }
-                    .help("Heartport's data folder")
+                    .help("Cupid's data folder")
             }
         }
         .buttonStyle(.borderless)
@@ -831,7 +831,7 @@ struct SettingsView: View {
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Hold Option while opening Heartport to reach this window without starting the game.")
+                    Text("Hold Option while opening Cupid to reach this window without starting the game.")
                         .fixedSize(horizontal: false, vertical: true)
                     if let version = model.report?.game.version {
                         Text("Heartopia \(version)")

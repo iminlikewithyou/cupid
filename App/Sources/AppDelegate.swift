@@ -1,5 +1,5 @@
 import AppKit
-import HeartportCore
+import CupidCore
 import SwiftUI
 
 @MainActor
@@ -11,17 +11,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     override init() {
         let env = ProcessInfo.processInfo.environment
-        // HEARTPORT_DATA_ROOT picks another data root; HEARTPORT_NO_AUTOPLAY=1 keeps the window up
+        // CUPID_DATA_ROOT picks another data root; CUPID_NO_AUTOPLAY=1 keeps the window up
         // in the ready state instead of starting the game.
         let paths = Paths.resolve()
-        model = AppModel(paths: paths, autoLaunch: env["HEARTPORT_NO_AUTOPLAY"] != "1")
+        model = AppModel(paths: paths, autoLaunch: env["CUPID_NO_AUTOPLAY"] != "1")
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = buildMenu()
-        // HEARTPORT_APPEARANCE=light|dark forces an appearance (for checking both looks).
-        switch ProcessInfo.processInfo.environment["HEARTPORT_APPEARANCE"]?.lowercased() {
+        // CUPID_APPEARANCE=light|dark forces an appearance (for checking both looks).
+        switch ProcessInfo.processInfo.environment["CUPID_APPEARANCE"]?.lowercased() {
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
         case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
         default: break
@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
                           styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
-        window.title = "Heartport"
+        window.title = "Cupid"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.setContentSize(size)
         window.center()
         // Remembers the position only; the size is fixed.
-        if window.setFrameAutosaveName("HeartportSetupWindow") { window.setContentSize(size) }
+        if window.setFrameAutosaveName("CupidSetupWindow") { window.setContentSize(size) }
 
         model.showWindow = { [weak self] in
             guard let self else { return }
@@ -66,17 +66,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
             }
         }
         let env = ProcessInfo.processInfo.environment
-        if let name = env["HEARTPORT_PREVIEW_PHASE"], !name.isEmpty {
+        if let name = env["CUPID_PREVIEW_PHASE"], !name.isEmpty {
             guard let preview = Preview.named(name) else {
-                FileHandle.standardError.write(Data("HEARTPORT_PREVIEW_PHASE: unknown phase \"\(name)\". One of: \(Preview.names.joined(separator: ", "))\n".utf8))
+                FileHandle.standardError.write(Data("CUPID_PREVIEW_PHASE: unknown phase \"\(name)\". One of: \(Preview.names.joined(separator: ", "))\n".utf8))
                 exit(2)
             }
             model.showPreview(preview)
-            if env["HEARTPORT_PREVIEW_SETTINGS"] == "1" {
+            if env["CUPID_PREVIEW_SETTINGS"] == "1" {
                 // Queued after showPreview's window, so Settings ends up key.
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.openSettings(nil) } }
             }
-            if env["HEARTPORT_PREVIEW_ABOUT"] == "1" {
+            if env["CUPID_PREVIEW_ABOUT"] == "1" {
                 DispatchQueue.main.async { MainActor.assumeIsolated { self.openAbout(nil) } }
             }
         } else {
@@ -109,8 +109,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         }
 
         let appItem = NSMenuItem()
-        let appMenu = NSMenu(title: "Heartport")
-        appMenu.addItem(item("About Heartport", #selector(openAbout(_:))))
+        let appMenu = NSMenu(title: "Cupid")
+        appMenu.addItem(item("About Cupid", #selector(openAbout(_:))))
         appMenu.addItem(.separator())
         appMenu.addItem(item("Settings…", #selector(openSettings(_:)), ","))
         appMenu.addItem(.separator())
@@ -122,11 +122,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         appMenu.addItem(.separator())
         appMenu.addItem(item("Uninstall…", #selector(uninstall(_:))))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("Hide Heartport", #selector(NSApplication.hide(_:)), "h"))
+        appMenu.addItem(item("Hide Cupid", #selector(NSApplication.hide(_:)), "h"))
         appMenu.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
         appMenu.addItem(item("Show All", #selector(NSApplication.unhideAllApplications(_:))))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("Quit Heartport", #selector(NSApplication.terminate(_:)), "q"))
+        appMenu.addItem(item("Quit Cupid", #selector(NSApplication.terminate(_:)), "q"))
         appItem.submenu = appMenu
         main.addItem(appItem)
 
@@ -139,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
         let windowItem = NSMenuItem()
         let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(item("Heartport", #selector(showMain(_:)), "0"))
+        windowMenu.addItem(item("Cupid", #selector(showMain(_:)), "0"))
         windowMenu.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
         windowMenu.addItem(item("Close", #selector(NSWindow.performClose(_:)), "w"))
         windowItem.submenu = windowMenu
@@ -195,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         if aboutWindow == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: AboutView.width, height: 200),
                              styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            w.title = "About Heartport"
+            w.title = "About Cupid"
             w.titleVisibility = .hidden
             w.titlebarAppearsTransparent = true
             w.isMovableByWindowBackground = true

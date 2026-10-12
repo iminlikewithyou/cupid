@@ -5,17 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Heartport</string>
+	<string>Cupid</string>
 	<key>CFBundleExecutable</key>
-	<string>Heartport</string>
+	<string>Cupid</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>app.heartport.launcher</string>
+	<string>app.cupid.launcher</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Heartport</string>
+	<string>Cupid</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -29,7 +29,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 Heartport contributors. Apache License 2.0. Bundles Recall's Wine runtime under its own licenses (see Contents/Resources/Licenses).</string>
+	<string>Copyright © 2026 Cupid contributors. Apache License 2.0. Bundles Recall's Wine runtime under its own licenses (see Contents/Resources/Licenses).</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>

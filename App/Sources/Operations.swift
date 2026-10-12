@@ -1,8 +1,8 @@
 import AppKit
-import HeartportCore
+import CupidCore
 
 /// The long, synchronous setup steps the app runs off the main thread. They mirror
-/// `heartport setup` (Sources/heartport/main.swift) step for step.
+/// `cupid setup` (Sources/cupid/main.swift) step for step.
 enum Operations {
     static func bytes(_ n: Int64) -> String {
         let f = ByteCountFormatter(); f.countStyle = .file; return f.string(fromByteCount: n)
@@ -28,13 +28,13 @@ enum Operations {
     /// `setup --step runtime` (with `replace`: `--repair`).
     static func installRuntimeIfNeeded(_ paths: Paths, _ r: Reporter, replace: Bool) throws {
         guard Rosetta.isInstalled else {
-            throw HeartportError(.rosetta, "Rosetta 2 is not installed.")
+            throw CupidError(.rosetta, "Rosetta 2 is not installed.")
         }
         let installer = RuntimeInstaller(paths: paths)
         if installer.isPresent && !replace {
             let version = installer.installedVersion()
             guard version == paths.runtimeVersion else {
-                throw HeartportError(.runtimeInvalid, "The installed runtime is version \(version ?? "?"), expected \(paths.runtimeVersion). Use Repair to reinstall it.")
+                throw CupidError(.runtimeInvalid, "The installed runtime is version \(version ?? "?"), expected \(paths.runtimeVersion). Use Repair to reinstall it.")
             }
             r.line("Checking the game runtime")
             try installer.ensureGameModeBundle()
