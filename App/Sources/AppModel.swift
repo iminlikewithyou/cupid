@@ -199,7 +199,10 @@ final class AppModel: ObservableObject {
         }
         noteLauncher(new.session.launcherRunning, first: !firstRefreshDone)
         report = new
-        phase = new.phase
+        // Hold the step while an operation runs: restarting TapTap takes the process list
+        // through several states in a few seconds, and the step dots flipped between TapTap
+        // and Download with it (fresh run 3). The operation's completion refreshes.
+        if activity == nil || phase == nil { phase = new.phase }
         hud = new.state.hud ?? false
         freeBytes = Self.availableBytes(near: paths.dataRoot)
         welcome = !welcomeDismissed && (phase?.needsWelcome(runtimeInstalled: new.runtime.installedVersion != nil,
