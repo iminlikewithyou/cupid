@@ -1,31 +1,31 @@
-# Heartport's Wine patches
+# Cupid's Wine patches
 
-Heartport's own changes to Wine: the Mac driver (`dlls/winemac.drv`), Media Foundation's source
+Cupid's own changes to Wine: the Mac driver (`dlls/winemac.drv`), Media Foundation's source
 reader (`dlls/mfreadwrite`) and CoreMessaging (`dlls/coremessaging`). They apply to the
 CodeWeavers Wine 26.3.0 `sources/wine` tree **after** Recall's set (`../recall/`, in the order its
 README gives), in this order:
 
 1. `wine-winemac-dock-identity.patch`
 2. `wine-winemac-native-fullscreen.patch`
-3. `wine-winemac-fullscreen-normal-level.patch` (from heartport-20261012.5)
-4. `wine-mfreadwrite-shared-textures.patch` (from heartport-20261012.5)
-5. `wine-coremessaging-dispatcher-queue.patch` (from heartport-20261012.5)
+3. `wine-winemac-fullscreen-normal-level.patch` (from cupid-20261012.5)
+4. `wine-mfreadwrite-shared-textures.patch` (from cupid-20261012.5)
+5. `wine-coremessaging-dispatcher-queue.patch` (from cupid-20261012.5)
 
-`scripts/runtime/build_portable_runtime.py` checks each patch's sha256 (`HEARTPORT_PATCHES`),
+`scripts/runtime/build_portable_runtime.py` checks each patch's sha256 (`CUPID_PATCHES`),
 applies them with `git apply` and keeps a copy of each applied patch in the source tree
-(`.heartport-own-patches/`, with `applied.json`). A rerun skips what is already applied; a
+(`.cupid-own-patches/`, with `applied.json`). A rerun skips what is already applied; a
 patch that changed is reversed from its stored copy (with every later one) and the current one
-applied, so the Wine step only rebuilds the driver. Recall's marker (`.heartport-patches.json`)
+applied, so the Wine step only rebuilds the driver. Recall's marker (`.cupid-patches.json`)
 is not involved.
 
 The driver patches are inert unless their environment variables are set; with none set the
-driver behaves exactly as Recall's. Heartport sets them for every Wine process (docs/PHASE2.md,
+driver behaves exactly as Recall's. Cupid sets them for every Wine process (docs/PHASE2.md,
 launch contract). The other two change behaviour for every program (see below).
 
 The patches are `git diff`s made against a copy of the folder they change as the earlier patches
 leave it. To change one: copy that folder into a scratch git repository, commit, apply the earlier
-Heartport patches and commit, make the change, `git diff` it into the patch file, update its
-sha256 in `HEARTPORT_PATCHES` and rerun the Wine step.
+Cupid patches and commit, make the change, `git diff` it into the patch file, update its
+sha256 in `CUPID_PATCHES` and rerun the Wine step.
 
 ## wine-winemac-dock-identity.patch
 
@@ -52,7 +52,7 @@ bundle's display name, which is its folder name (`xdt`) unless the bundle carrie
 display name. Iteration 5 checked it with test programs: LSDisplayName set before or after the
 process becomes regular, toggling the activation policy, and LaunchServices' `CFBundleName` item
 all leave the label alone (System Events' Dock item name, which is the hover label, stays the
-executable's or bundle's file name). So Heartport's `GameModeBundle` (core, bundle version 3)
+executable's or bundle's file name). So Cupid's `GameModeBundle` (core, bundle version 3)
 gives `xdt.app` `CFBundleDisplayName = xdt`, `LSHasLocalizedDisplayName = true` and
 `Contents/Resources/en.lproj/InfoPlist.strings` with `CFBundleDisplayName = "Heartopia"` (Finder's
 rule: the localized name is used while the folder name equals the plain display name). The Dock
@@ -118,7 +118,7 @@ DXMT change was needed.
 ## wine-coremessaging-dispatcher-queue.patch
 
 A minimal `Windows.System.DispatcherQueue` in coremessaging.dll (registered in `classes.idl`, so
-`wineboot -u` adds its WinRT activation entry; Heartport runs that whenever the runtime changes):
+`wineboot -u` adds its WinRT activation entry; Cupid runs that whenever the runtime changes):
 
 - `IDispatcherQueueStatics::GetForCurrentThread` returns the calling thread's queue, or NULL with
   S_OK when the thread has none (as Windows does).

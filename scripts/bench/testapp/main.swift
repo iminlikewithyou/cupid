@@ -1,4 +1,4 @@
-// heartport-bench-testapp: a minimal MetalKit window for testing the bench tools.
+// cupid-bench-testapp: a minimal MetalKit window for testing the bench tools.
 // Presents a new frame at 60 Hz and blocks the render loop once every
 // `stutterEvery` seconds for `stutterMs` milliseconds, so the analysis
 // should report about 60 FPS and one stutter per interval.
@@ -56,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         renderer = Renderer(device: device)
         view.delegate = renderer
         window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = "Heartport bench test"
+        window.title = "Cupid bench test"
         window.contentView = view
         window.center()
         window.level = .floating

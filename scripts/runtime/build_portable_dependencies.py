@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/build_portable_dependencies.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Build the runtime's small native dependency closure from pinned inputs.
 
 Developer-only prerequisites: clang, make and pkg-config. Installation stays
@@ -23,10 +23,10 @@ INPUTS = {
     'libinotify-20240724.tar.gz': ('https://github.com/libinotify-kqueue/libinotify-kqueue/releases/download/20240724/libinotify-20240724.tar.gz', '5cc3fb7af407b17b7daa871cc98bb882716c4b5c296fadfb66bfe86c37cc599c'),
     'MoltenVK-macos.tar': ('https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.9/MoltenVK-macos.tar', '93369586b116bc027ef7121fd713ff32fcd856febcb4622b6ba527edcadd68ea'),
     'SDL2-2.32.10.tar.gz': ('https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz', '5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165'),
-    # Heartport: FFmpeg for Wine's winedmo (Media Foundation demuxing). sha256 as Homebrew's
+    # Cupid: FFmpeg for Wine's winedmo (Media Foundation demuxing). sha256 as Homebrew's
     # ffmpeg@7 formula pins the same ffmpeg.org URL (ffmpeg.org publishes GPG signatures only).
     'ffmpeg-7.1.5.tar.xz': ('https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz', 'de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f'),
-    # Heartport: GStreamer for winegstreamer's Media Foundation decoders (H.264, AAC through
+    # Cupid: GStreamer for winegstreamer's Media Foundation decoders (H.264, AAC through
     # gst-libav over the FFmpeg above). sha256 from each project's release page: GitHub's asset
     # digests (libffi, pcre2), download.gnome.org's .sha256sum (glib), and
     # gstreamer.freedesktop.org's .sha256sum files.
@@ -47,7 +47,7 @@ ONLY = {'sdl2': 'SDL2-', 'ffmpeg': 'ffmpeg-'}
 # input only to a foreground app, never to Wine's background device host.
 SDL2_OPTIONS = ['--disable-joystick-mfi', '--disable-audio', '--disable-video', '--disable-render',
                 '--disable-sensor', '--disable-power', '--disable-hidapi-libusb']
-# Heartport: FFmpeg, LGPL only (no --enable-gpl/--enable-nonfree, no external libraries:
+# Cupid: FFmpeg, LGPL only (no --enable-gpl/--enable-nonfree, no external libraries:
 # --disable-autodetect, then only the system zlib for compressed MP4 headers). Wine's winedmo
 # demuxes MP4/MOV, AVI, WAV, ASF, MPEG-PS and MP3 through libavformat and needs the
 # h264_mp4toannexb bitstream filter; the decoders and parsers cover H.264, HEVC, AAC and MP3.
@@ -63,7 +63,7 @@ FFMPEG_OPTIONS = ['--disable-autodetect', '--enable-zlib', '--disable-x86asm', '
                   '--enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,null',
                   '--enable-swscale', '--enable-swresample']
 # libavfilter is built (no filters) because gst-libav links it.
-# GStreamer stack (Heartport). Autotools: libffi and pcre2 (GLib's dependencies). Meson, cross
+# GStreamer stack (Cupid). Autotools: libffi and pcre2 (GLib's dependencies). Meson, cross
 # compiled for x86_64 with the venv's meson: GLib, GStreamer and the plugin modules, each limited
 # to what winegstreamer's MP4/H.264/AAC path uses (assemble_portable_runtime.py ships the plugins
 # in GSTREAMER_PLUGINS). ORC, introspection, NLS, docs, tests and examples are off. GLib's
@@ -89,9 +89,11 @@ MESON = {
     'gst-plugins-bad': MESON_COMMON + ['-Dauto_features=disabled', '-Dvideoparsers=enabled'],
     'gst-libav': ['-Ddoc=disabled', '-Dtests=disabled'],
 }
-MESON_PREFIX = '/build/heartport/clean-deps'
+MESON_PREFIX = '/build/cupid/clean-deps'
 WINE_SHA = 'ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872'
-TOOLCHAINS = Path(__file__).resolve().parents[2].parent / 'mactopia-runtime/toolchains'
+# Cupid: the build workspace, CUPID_RUNTIME_WORKSPACE or ../cupid-runtime beside the checkout.
+WORKSPACE = Path(os.environ.get('CUPID_RUNTIME_WORKSPACE') or Path(__file__).resolve().parents[2].parent / 'cupid-runtime')
+TOOLCHAINS = WORKSPACE / 'toolchains'
 
 
 def merge_tree(source, target):
@@ -181,7 +183,7 @@ def build(work, jobs, only=None, start=None, toolchains=TOOLCHAINS):
                SDKROOT='/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk')
     env.update(PATH=str(prefix / 'bin') + ':/usr/bin:/bin:/usr/sbin:/sbin',
                CC='/usr/bin/clang -arch x86_64', CXX='/usr/bin/clang++ -arch x86_64',
-               CFLAGS='-O2 -g0 -ffile-prefix-map=' + str(work) + '=/build/heartport',
+               CFLAGS='-O2 -g0 -ffile-prefix-map=' + str(work) + '=/build/cupid',
                LDFLAGS='-L' + str(prefix / 'lib'), CPPFLAGS='-I' + str(prefix / 'include'),
                PKG_CONFIG_LIBDIR=str(prefix / 'lib/pkgconfig'), PKG_CONFIG_PATH='',
                MACOSX_DEPLOYMENT_TARGET='26.0')
@@ -263,7 +265,7 @@ def build(work, jobs, only=None, start=None, toolchains=TOOLCHAINS):
                 # friends); keep the workspace path out of it, as the prefix map does for sources.
                 config = directory / 'config.h'
                 text = config.read_text()
-                if str(work) in text: config.write_text(text.replace(str(work), '/build/heartport'))
+                if str(work) in text: config.write_text(text.replace(str(work), '/build/cupid'))
             elif changed or not (directory / 'config.status').exists():
                 run(['/usr/bin/arch', '-x86_64', src / 'configure', '--prefix=' + str(prefix), '--host=x86_64-apple-darwin', '--enable-shared', '--disable-static'] + options)
             marker.write_text(json.dumps(configuration, indent=2) + '\n')

@@ -6,7 +6,7 @@ index 0087e9d..53420fe 100644
          [self updateFullscreenWindows];
          [self adjustWindowLevels:YES];
  
-+        /* Heartport: a native-fullscreen window enters its Space only while
++        /* Cupid: a native-fullscreen window enters its Space only while
 +           the application is active (WINEMAC_NATIVE_FULLSCREEN). */
 +        if (native_fullscreen_allowed)
 +        {
@@ -29,7 +29,7 @@ index d1e7ad8..8e97156 100644
  
  BOOL macdrv_v1_canvas_held(WineWindow *window) {
 -    return playerAway && !NSApp.isActive && canvas(window) != nil;
-+    /* Heartport: a window in a native fullscreen Space is never held: Spaces
++    /* Cupid: a window in a native fullscreen Space is never held: Spaces
 +       handle switching away from it (WINEMAC_NATIVE_FULLSCREEN). */
 +    return playerAway && !NSApp.isActive && canvas(window) != nil && !window.nativeFullscreen;
  }
@@ -43,7 +43,7 @@ index b4520d0..9025da8 100644
      NSRect nonFullscreenFrame;
      NSTimeInterval enteredFullScreenTime;
  
-+    /* Heartport: WINEMAC_NATIVE_FULLSCREEN (see -reconcileNativeFullscreen). */
++    /* Cupid: WINEMAC_NATIVE_FULLSCREEN (see -reconcileNativeFullscreen). */
 +    BOOL nativeFullscreen;            /* in, or entering, a fullscreen Space the driver asked for */
 +    BOOL nativeFullscreenScheduled;
 +    BOOL nativeFullscreenDeclined;    /* the player left the Space, or entering it failed */
@@ -66,7 +66,7 @@ index b4520d0..9025da8 100644
  
      - (void) setRetinaMode:(BOOL)mode;
  
-+    /* Heartport: WINEMAC_NATIVE_FULLSCREEN. */
++    /* Cupid: WINEMAC_NATIVE_FULLSCREEN. */
 +    - (void) scheduleNativeFullscreenCheck;
 +
  @end
@@ -96,7 +96,7 @@ index 96c91df..9208e4b 100644
              captured = (fullscreen || [self screen]) && [[WineApplicationController sharedController] areDisplaysCaptured];
  
 -            if (captured || fullscreen)
-+            /* Heartport: a native-fullscreen window stays at the normal level;
++            /* Cupid: a native-fullscreen window stays at the normal level;
 +               its Space keeps it in front.  One that the player took out of
 +               its Space, or that refused the Space's frame, floats as before. */
 +            if (captured || (fullscreen && (![self nativeFullscreenCandidate] || nativeFullscreenDeclined)))
@@ -107,7 +107,7 @@ index 96c91df..9208e4b 100644
              return;
          }
  
-+        /* Heartport: leave the native fullscreen Space first; the window is
++        /* Cupid: leave the native fullscreen Space first; the window is
 +           ordered out when that ends (windowDidExitFullScreen:).  A window
 +           being destroyed is closed at once, which ends its Space. */
 +        if (nativeFullscreen && !self.closing && ([self styleMask] & NSWindowStyleMaskFullScreen))
@@ -136,7 +136,7 @@ index 96c91df..9208e4b 100644
 +        [self scheduleNativeFullscreenCheck];
 +    }
 +
-+    /* Heartport: WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen
++    /* Cupid: WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen
 +       window (borderless, covering a screen) goes into its own fullscreen
 +       Space at the normal window level, instead of floating above every
 +       other window at NSStatusWindowLevel + 1: notification banners show,
@@ -227,7 +227,7 @@ index 96c91df..9208e4b 100644
 +            if (!NSEqualRects(frame, oldFrame) && nativeFullscreen &&
 +                (enteringFullScreen || exitingFullScreen || ([self styleMask] & NSWindowStyleMaskFullScreen)))
 +            {
-+                /* Heartport: the native fullscreen Space owns the frame.  A frame
++                /* Cupid: the native fullscreen Space owns the frame.  A frame
 +                   that no longer covers a screen leaves the Space and is applied
 +                   when that ends. */
 +                nativeRequestedFrame = frame;
@@ -256,7 +256,7 @@ index 96c91df..9208e4b 100644
  
      - (void) toggleFullScreen:(id)sender
      {
-+        /* Heartport: the Window menu's Enter/Exit Full Screen on a native-fullscreen
++        /* Cupid: the Window menu's Enter/Exit Full Screen on a native-fullscreen
 +           candidate.  Leaving keeps the window out of the Space until the program
 +           next leaves and re-enters fullscreen, or the player enters again. */
 +        if ([self nativeFullscreenCandidate])
@@ -338,8 +338,8 @@ index fc31f7f..1009c5b 100644
  extern bool enable_app_nap;
  extern bool mouselook_allowed;  /* This process may use mouselook (WINEMAC_MOUSELOOK lists its exe). */
  extern char mouselook_process[64];
-+extern bool native_fullscreen_allowed;  /* Heartport: WINEMAC_NATIVE_FULLSCREEN lists this process's exe. */
- /* Heartport: the Dock identity from the environment, read by setup_options.
++extern bool native_fullscreen_allowed;  /* Cupid: WINEMAC_NATIVE_FULLSCREEN lists this process's exe. */
+ /* Cupid: the Dock identity from the environment, read by setup_options.
     app_display_name (WINEMAC_APP_NAME) is set only when LaunchServices offers
     the private call that renames a running application. */
 diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
@@ -361,7 +361,7 @@ index c7c9334..8982abd 100644
 +/***********************************************************************
 + *              setup_native_fullscreen
 + *
-+ * Heartport: WINEMAC_NATIVE_FULLSCREEN is a semicolon-separated list of exe
++ * Cupid: WINEMAC_NATIVE_FULLSCREEN is a semicolon-separated list of exe
 + * names, matched case-insensitively like WINEMAC_MOUSELOOK.  A listed
 + * program's fullscreen windows go into a macOS fullscreen Space instead of
 + * floating above every other window (cocoa_window.m).

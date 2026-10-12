@@ -1,6 +1,6 @@
 # Benchmark tools
 
-Frame-time and power comparison of Heartopia under Heartport and under other
+Frame-time and power comparison of Heartopia under Cupid and under other
 routes (CrossOver first), in the format of Recall's
 [performance page](https://github.com/AsherJN/recall/blob/main/docs/PERFORMANCE.md),
 with power as an extra axis.
@@ -16,7 +16,7 @@ with power as an extra axis.
 2-minute trace of a game is roughly 1 to 2 GB; once `metrics.json` exists the
 trace can be deleted.
 
-## Running a Heartport vs. CrossOver comparison
+## Running a Cupid vs. CrossOver comparison
 
 1. **Pick one scenario** you can repeat, about 2 minutes of real play: for
    example a fixed walk around town with the camera turning. Same save, same
@@ -35,7 +35,7 @@ trace can be deleted.
    It prints a `sudo powermetrics ...` command; run it in a second terminal,
    go back and press Return, switch to the game during the countdown, and
    play the scenario until it says STOPPED. Then quit the game.
-4. **Heartport run.** Same again in Heartport with label `heartport-town`.
+4. **Cupid run.** Same again in Cupid with label `cupid-town`.
 5. **Find the game process** (Wine processes are all called `wine` or
    `wine64-preloader`, so names alone are ambiguous):
 
@@ -52,13 +52,13 @@ trace can be deleted.
 
    ```sh
    scripts/bench/analyze.py crossover-town --process <pid> --trim-start 10 --trim-end 5 --name CrossOver
-   scripts/bench/analyze.py heartport-town --process <pid> --trim-start 10 --trim-end 5 --name Heartport
+   scripts/bench/analyze.py cupid-town --process <pid> --trim-start 10 --trim-end 5 --name Cupid
    ```
 
 7. **Compare** (baseline first):
 
    ```sh
-   scripts/bench/compare.py crossover-town heartport-town --names "CrossOver" "Heartport" --setup
+   scripts/bench/compare.py crossover-town cupid-town --names "CrossOver" "Cupid" --setup
    ```
 
    Paste the output into the README under a heading for the scenario. Add the

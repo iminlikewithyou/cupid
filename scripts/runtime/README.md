@@ -1,34 +1,34 @@
 # Runtime build (Wine + DXMT from pinned sources)
 
-These scripts build Heartport's own Wine + DXMT runtime from pinned upstream sources. They are
-copies of Recall's release pipeline, adapted for Heartport:
+These scripts build Cupid's own Wine + DXMT runtime from pinned upstream sources. They are
+copies of Recall's release pipeline, adapted for Cupid:
 
 - Origin: https://github.com/AsherJN/recall, commit `61a3a59` ("Docs: MetalFX upscaling page"),
   `scripts/`. Recall is Copyright 2026 Joshua Asher Nelson and licensed under the Apache License
   2.0; its NOTICE is kept here as `RECALL-NOTICE`. Each copied script carries a header saying so.
 - Recall's patches are in `../../patches/recall/`, byte-for-byte (8 Wine patches, 4 DXMT
   patches and their README). The scripts check each patch's sha256 before applying it.
-- Heartport's own Wine patches are in `../../patches/heartport/` (from `heartport-20261012.4`:
-  the Mac driver's Dock identity and native fullscreen Space; from `heartport-20261012.5`: the
+- Cupid's own Wine patches are in `../../patches/cupid/` (from `cupid-20261012.4`:
+  the Mac driver's Dock identity and native fullscreen Space; from `cupid-20261012.5`: the
   normal-level fullscreen mode, shareable source-reader textures for Unity's video player and a
   minimal `Windows.System.DispatcherQueue`), applied after Recall's.
 - `config/dxmt-source60-1200.conf` is Recall's renderer profile, which the assembler installs
   as the runtime's `config/dxmt.conf` (identical to Recall 1.3.0's).
 
-The first build (`heartport-20261012.1`) is a parity build: the same inputs and patches as
+The first build (`cupid-20261012.1`) is a parity build: the same inputs and patches as
 Recall's runtime `phase2-20261007.3`. See docs/PLAN.md, "Runtime build", for what came out.
 
 ## Layout
 
-Everything large lives outside the repo, in `../mactopia-runtime/` beside the checkout (the
-path must not contain spaces: autoconf):
+Everything large lives outside the repo, in `../cupid-runtime/` beside the checkout, or wherever
+`CUPID_RUNTIME_WORKSPACE` points (the path must not contain spaces: autoconf):
 
 ```text
-mactopia-runtime/
+cupid-runtime/
   toolchains/            LLVM 15.0.7, llvm-mingw 20251216, bison 3.8.2, python venv (meson, ninja)
   phase-2/               the build workspace (the scripts require this folder name)
   apple-original/        redist/lib/external/libd3dshared.dylib and Apple's three RTFs
-  signing/heartport-nvngx/   the self-made certificate that signs DXMT's nvngx.dll
+  signing/cupid-nvngx/   the self-made certificate that signs DXMT's nvngx.dll
   metal-cache/           DXMT_METAL_CACHE entries (only without a Metal toolchain, see below)
   artifacts/<version>/   runtime/ tree, runtime.tar.gz, runtime.json, runtime-archive.json,
                          build-proof.json
@@ -38,24 +38,24 @@ mactopia-runtime/
 ## Steps
 
 ```sh
-W=../mactopia-runtime
+W=../cupid-runtime
 python3 scripts/runtime/build_portable_runtime.py --workspace $W/phase-2 --download-only
 python3 scripts/runtime/build_portable_dependencies.py --workspace $W/phase-2 --jobs 8
 python3 scripts/runtime/build_portable_runtime.py --workspace $W/phase-2 --jobs 10
 python3 scripts/runtime/build_portable_dxmt.py --workspace $W/phase-2 --jobs 4
 python3 scripts/runtime/assemble_portable_runtime.py --workspace $W/phase-2 \
-    --version heartport-YYYYMMDD.N --identity - --apple-original $W/apple-original
+    --version cupid-YYYYMMDD.N --identity - --apple-original $W/apple-original
 ```
 
-Then install it with Heartport (the `runtime-archive.json` beside the tarball names its version
+Then install it with Cupid (the `runtime-archive.json` beside the tarball names its version
 and sha256):
 
 ```sh
-HEARTPORT_RUNTIME_ARCHIVE=$W/artifacts/<version>/runtime.tar.gz .build/debug/heartport setup --step runtime
+CUPID_RUNTIME_ARCHIVE=$W/artifacts/<version>/runtime.tar.gz .build/debug/cupid setup --step runtime
 ```
 
 The signing certificate is made once with
-`python3 scripts/runtime/sign_pe.py create-certificate ../mactopia-runtime/signing/heartport-nvngx`
+`python3 scripts/runtime/sign_pe.py create-certificate ../cupid-runtime/signing/cupid-nvngx`
 (OpenSSL 3). Keep its keys out of git.
 
 ### Metal shaders
@@ -72,7 +72,7 @@ fills a `DXMT_METAL_CACHE` folder from the compiled shaders embedded in a runtim
 same shader sources (e.g. Recall's `phase2-20261007.3`), and the build reuses them (iteration 1
 was built that way).
 
-### GStreamer (from heartport-20261012.3)
+### GStreamer (from cupid-20261012.3)
 
 Wine's Media Foundation decoders (H.264 and AAC among them) are winegstreamer's, so the runtime
 ships a minimal GStreamer built by `build_portable_dependencies.py`:
@@ -91,7 +91,7 @@ ships a minimal GStreamer built by `build_portable_dependencies.py`:
 Meson runs from the venv with a generated cross file (x86_64 macOS host, `/usr/bin/clang -arch
 x86_64`, the same `-O2 -g0 -ffile-prefix-map` flags, the macOS 26.5 SDK and deployment target
 26.0 from the environment) and bison 3.8.2 from the toolchains. Meson components install with
-`--prefix /build/heartport/clean-deps` into a DESTDIR and are then merged into `clean-deps`, so
+`--prefix /build/cupid/clean-deps` into a DESTDIR and are then merged into `clean-deps`, so
 GLib's and GStreamer's compiled-in default paths name no build-machine folder (all overridden at
 run time). pkgconf runs with `--define-prefix` and system paths `/usr/include`, `/usr/lib`.
 
@@ -103,7 +103,7 @@ audioconvert, audioresample, videoconvertscale (videoconvert), deinterlace, vide
 (videoflip). Their links bring GLib (glib, gobject, gmodule), libintl (proxy), pcre2, libffi,
 the GStreamer libraries (gstreamer, base, audio, video, tag, pbutils, riff, rtp, codecparsers)
 and FFmpeg (avcodec, avformat, avutil, avfilter) into `lib/`. No gst-plugin-scanner and no
-GStreamer tools are shipped; Heartport sets `GST_REGISTRY_FORK=no`.
+GStreamer tools are shipped; Cupid sets `GST_REGISTRY_FORK=no`.
 
 Build-time check (not shipped), with `gst-launch-1.0` from `clean-deps/bin` under Rosetta:
 `filesrc ! qtdemux ! h264parse ! avdec_h264 ! fakesink` and
@@ -121,7 +121,7 @@ Wine's `winedmo`. LGPL 2.1 or later; configure:
 ```text
 --prefix=<clean-deps> --enable-shared --disable-static --arch=x86_64 --target-os=darwin
 --cc='/usr/bin/clang -arch x86_64' --cxx='/usr/bin/clang++ -arch x86_64'
---extra-cflags='-O2 -g0 -ffile-prefix-map=<workspace>=/build/heartport' --extra-ldflags=-L<clean-deps>/lib
+--extra-cflags='-O2 -g0 -ffile-prefix-map=<workspace>=/build/cupid' --extra-ldflags=-L<clean-deps>/lib
 --pkg-config=false --disable-autodetect --enable-zlib --disable-x86asm --disable-doc
 --disable-programs --enable-ffprobe --disable-avdevice --disable-postproc
 --disable-network --disable-everything --enable-protocol=file
@@ -133,7 +133,7 @@ Wine's `winedmo`. LGPL 2.1 or later; configure:
 
 No `--enable-gpl`, no `--enable-nonfree`, no external codec libraries (only the system zlib),
 no VideoToolbox, no x86 assembly (no nasm in the toolchain; winedmo only demuxes, so decode
-speed does not matter today). The workspace path is replaced by `/build/heartport` in the
+speed does not matter today). The workspace path is replaced by `/build/cupid` in the
 embedded configure line. `ffprobe` stays in `clean-deps/bin` for checks and is never shipped.
 Wine is configured with `FFMPEG_CFLAGS=-I<clean-deps>/include` and
 `FFMPEG_LIBS=-L<clean-deps>/lib -lavutil -lavformat -lavcodec`; `winedmo.so` links
@@ -144,45 +144,46 @@ not shipped). Licences: `licenses/native/ffmpeg/{LICENSE.md,COPYING.LGPLv2.1}`.
 ## Changes from Recall's scripts
 
 All scripts:
-- `ROOT` is the repo root (`parents[2]`); toolchains default to `../mactopia-runtime/toolchains`.
-- `-ffile-prefix-map` maps the workspace to `/build/heartport` (Recall: `/build/overwatch-2-mac`).
+- `ROOT` is the repo root (`parents[2]`); the workspace is `$CUPID_RUNTIME_WORKSPACE`, default `../cupid-runtime`;
+  toolchains default to its `toolchains/`.
+- `-ffile-prefix-map` maps the workspace to `/build/cupid` (Recall: `/build/overwatch-2-mac`).
 - `--jobs` accepts 1–16 (Recall: 1–4).
 
 `build_portable_runtime.py`: patches from `patches/recall/`; Wine configured with FFmpeg
 (`HAVE_FFMPEG` required in config.h) and GStreamer (`--with-gstreamer`, winegstreamer.so required); a marker in the Wine source records the applied patches,
 so a rerun on a patched tree skips patching (the patches overlap, and Recall's `apply_once` stops
 on such a tree).
-Heartport's own Wine patches (`patches/heartport/`, sha256-pinned in `HEARTPORT_PATCHES`) are
-applied after Recall's; the source tree keeps a copy of each in `.heartport-own-patches/`, so a
+Cupid's own Wine patches (`patches/cupid/`, sha256-pinned in `CUPID_PATCHES`) are
+applied after Recall's; the source tree keeps a copy of each in `.cupid-own-patches/`, so a
 rerun skips them and a changed patch is reversed and re-applied (only the driver rebuilds). The
-build proof lists them under `heartport_patches`.
+build proof lists them under `cupid_patches`.
 
 `build_portable_dependencies.py`: FFmpeg and the GStreamer stack (see above); `--only ffmpeg`;
 `--from NAME` starts at a dependency; `--toolchains` (meson, ninja, bison).
 
 `build_portable_dxmt.py`: the source is reset to the base commit and cleaned before patching
 (reruns work); patches from `patches/recall/`; the wrapper from
-`scripts/runtime/portable_metal.py`; `--signing` (default `../mactopia-runtime/signing/heartport-nvngx`);
+`scripts/runtime/portable_metal.py`; `--signing` (default `../cupid-runtime/signing/cupid-nvngx`);
 `DEVELOPER_DIR` and `SDKROOT` default to the Command Line Tools and the macOS 26.5 SDK, as for
 Wine; the build proof records the Metal developer directory and the cache's origin.
 
 `portable_metal.py`: `METAL_DEVELOPER_DIR` runs only the Metal tools from another developer
 directory.
 
-`sign_pe.py`: the certificate is "Heartport Root" / "Heartport" in `heartport*.der/key`.
+`sign_pe.py`: the certificate is "Cupid Root" / "Cupid" in `cupid*.der/key`.
 
 `assemble_portable_runtime.py`:
 - `--apple-original DIR` (Recall: `<workspace>/apple-original`), `--toolchains`, `--output`
-  (default `../mactopia-runtime/artifacts`); the result goes to `<output>/<version>/`:
+  (default `../cupid-runtime/artifacts`); the result goes to `<output>/<version>/`:
   the tree in `runtime/`, `runtime.tar.gz`, a copy of `runtime.json`, `build-proof.json`
   (Recall's `<version>.json`) and `runtime-archive.json` (version, sha256, minimum_macos) for
-  Heartport's installer.
-- No game app: Recall made `lib/wine/game-mode/Overwatch.app` here; Heartport creates
+  Cupid's installer.
+- No game app: Recall made `lib/wine/game-mode/Overwatch.app` here; Cupid creates
   `lib/wine/game-mode/xdt.app` at install time (RuntimeInstaller.ensureGameModeBundle).
 - `--identity -` signs ad hoc, without `--options runtime` and `--timestamp`; a real identity
   is signed as Recall signs (hardened runtime, timestamp).
-- `licenses/PROJECT-APACHE-2.0` is Heartport's `LICENSE` and `licenses/PROJECT-NOTICE` is
-  `licenses/PROJECT-NOTICE` here (Heartport's, with Recall's attribution). It also adds the
+- `licenses/PROJECT-APACHE-2.0` is Cupid's `LICENSE` and `licenses/PROJECT-NOTICE` is
+  `licenses/PROJECT-NOTICE` here (Cupid's, with Recall's attribution). It also adds the
   license files Recall's shipped runtime carries from its later derivations
   (`DXMT-LICENSE`, `DXMT-LGPL-2.1`, `NVAPI-MIT`, `LLVM-15-LICENSE.txt`).
 - `nvngx.dll` is not stripped, so its Authenticode signature stays valid (Recall's assembler
@@ -192,7 +193,7 @@ directory.
 - GStreamer plugins (`GSTREAMER_PLUGINS`) are copied into `lib/gstreamer-1.0` with the rpaths
   `@loader_path` and `@loader_path/..`.
 
-`metal_cache_from_runtime.py` is Heartport's (see "Metal shaders").
+`metal_cache_from_runtime.py` is Cupid's (see "Metal shaders").
 
 ## Toolchains
 

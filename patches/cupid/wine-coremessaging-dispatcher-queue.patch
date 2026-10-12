@@ -28,7 +28,7 @@ index 6fa2e28..6d390bf 100644
      factory_ActivateInstance,
  };
  
-+/* Heartport: a minimal Windows.System.DispatcherQueue. Each queue belongs to one thread and owns a
++/* Cupid: a minimal Windows.System.DispatcherQueue. Each queue belongs to one thread and owns a
 + * message-only window there; TryEnqueue posts the handler to that window, so it runs when the owning
 + * thread pumps messages (the dedicated thread of CreateOnDedicatedThread always does). Priorities are
 + * accepted and ignored; timers are not implemented. */

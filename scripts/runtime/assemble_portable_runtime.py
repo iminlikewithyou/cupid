@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/assemble_portable_runtime.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Assemble/sign a versioned runtime from Phase 2 source-build outputs.
 
 Does not copy installed developer runtimes or Windows prefixes. Apple support
@@ -22,12 +22,14 @@ from concurrent.futures import ThreadPoolExecutor
 import sign_pe
 
 ROOT=Path(__file__).resolve().parents[2]
-# Heartport: toolchains and artifacts outside the repo, beside the build workspace.
-TOOLCHAINS=ROOT.parent/'mactopia-runtime/toolchains'
-ARTIFACTS=ROOT.parent/'mactopia-runtime/artifacts'
+# Cupid: toolchains and artifacts outside the repo, beside the build workspace.
+# Cupid: the build workspace, CUPID_RUNTIME_WORKSPACE or ../cupid-runtime beside the checkout.
+WORKSPACE=Path(os.environ.get('CUPID_RUNTIME_WORKSPACE') or ROOT.parent/'cupid-runtime')
+TOOLCHAINS=WORKSPACE/'toolchains'
+ARTIFACTS=WORKSPACE/'artifacts'
 COMPILER='llvm-mingw-20251216-ucrt-macos-universal'
 NVNGX='lib/wine/x86_64-windows/nvngx.dll'
-# GStreamer plugins winegstreamer's Media Foundation path needs (heartport-20261012.3). Plugins are
+# GStreamer plugins winegstreamer's Media Foundation path needs (cupid-20261012.3). Plugins are
 # dlopened, so the dependency walker cannot find them; they are listed here and their own links
 # pull in GLib, the GStreamer libraries and FFmpeg. Element names: decodebin (playback) with
 # typefind (coreelements, typefindfunctions); qtdemux (isomp4); h264parse (videoparsersbad);
@@ -66,8 +68,8 @@ def assemble(work,version,identity,original,toolchains,output):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}',version):raise ValueError('Invalid runtime version')
     for name in ['wine-build-proof.json','dxmt-build-proof.json','native-build-proof.json']:
         if not (work/name).is_file():raise ValueError('Complete the source builds first: '+name)
-    # Heartport: <output>/<version>/ holds the tree (runtime/), runtime.tar.gz, a copy of
-    # runtime.json, runtime-archive.json (what Heartport needs to install it) and build-proof.json.
+    # Cupid: <output>/<version>/ holds the tree (runtime/), runtime.tar.gz, a copy of
+    # runtime.json, runtime-archive.json (what Cupid needs to install it) and build-proof.json.
     artifact=output/version
     if artifact.exists():raise ValueError('Use a new version; existing artifact is never overwritten')
     dest=artifact/'runtime'
@@ -95,7 +97,7 @@ def assemble(work,version,identity,original,toolchains,output):
     for name in ['License.rtf','Read Me.rtf','Acknowledgements.rtf']:
         copy(original/name,dest/'licenses/apple'/name)
     copy(work/'sources/wine/sources/wine/COPYING.LIB',dest/'licenses/Wine-LGPL-2.1')
-    # Heartport's license and NOTICE (which carries Recall's attribution) in place of Recall's.
+    # Cupid's license and NOTICE (which carries Recall's attribution) in place of Recall's.
     copy(ROOT/'LICENSE',dest/'licenses/PROJECT-APACHE-2.0')
     copy(ROOT/'scripts/runtime/licenses/PROJECT-NOTICE',dest/'licenses/PROJECT-NOTICE')
     # Licenses Recall's shipped runtime carries from its derivations (derive_runtime.py):
@@ -212,7 +214,7 @@ def assemble(work,version,identity,original,toolchains,output):
         # 1.3: without it the hardened runtime gives the game silence for the microphone, with no prompt.
         'com.apple.security.device.audio-input']}))
     for index,p in enumerate(sorted(native)):
-        # Heartport: '-' signs ad hoc, without the hardened runtime and a secure timestamp
+        # Cupid: '-' signs ad hoc, without the hardened runtime and a secure timestamp
         # (both need a Developer ID identity); a real identity is signed as Recall signs.
         args=['codesign','--force','--sign',identity]
         if identity!='-':args[2:2]=['--options','runtime','--timestamp']
@@ -222,7 +224,7 @@ def assemble(work,version,identity,original,toolchains,output):
         if index%10==0:print('Signed native components:',index+1,'of',len(native),flush=True)
     run('codesign','--verify','--strict','-R=anchor apple',dest/'lib/external/libd3dshared.dylib')
     if sha(dest/'lib/external/libd3dshared.dylib')!=APPLE_SHA:raise ValueError('Apple component must remain unmodified')
-    # Heartport: no game app here. Heartport's RuntimeInstaller.ensureGameModeBundle makes
+    # Cupid: no game app here. Cupid's RuntimeInstaller.ensureGameModeBundle makes
     # lib/wine/game-mode/xdt.app from the loader at install time (Recall made Overwatch.app here).
     if not sign_pe.check(dest/NVNGX):raise ValueError('nvngx.dll lost its signature on its way into the runtime')
     files={}
@@ -246,7 +248,7 @@ def assemble(work,version,identity,original,toolchains,output):
            'unpacked_file_bytes':sum(v.get('bytes',0) for v in files.values()),'files':len(files),
            'signed_native_components':len(native),'dependency_names':sorted(chosen)}
     (artifact/'build-proof.json').write_text(json.dumps(proof,indent=2)+'\n')
-    # Read by Heartport's RuntimeInstaller when it sits next to runtime.tar.gz.
+    # Read by Cupid's RuntimeInstaller when it sits next to runtime.tar.gz.
     (artifact/'runtime-archive.json').write_text(json.dumps({'version':version,'sha256':proof['archive_sha256'],
         'minimum_macos':manifest['minimum_macos']},indent=2)+'\n')
     print(json.dumps(proof,indent=2))

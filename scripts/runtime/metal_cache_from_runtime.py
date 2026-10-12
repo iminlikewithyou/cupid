@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fill a DXMT_METAL_CACHE folder from a shipped runtime's compiled DXMT shaders.
 
-Heartport-only fallback for a Mac without Apple's Metal toolchain (Xcode 26 installs it
+Cupid-only fallback for a Mac without Apple's Metal toolchain (Xcode 26 installs it
 separately: `xcodebuild -downloadComponent MetalToolchain`). portable_metal.py, when the
 Metal compiler is missing, takes <sha256 of input>.<suffix> from DXMT_METAL_CACHE. This
 script writes those entries for DXMT's four shader sources (patched as the build patches
@@ -69,7 +69,7 @@ def main(runtime, source, cache):
         (cache / f'{key}.air').write_bytes(matches[0])
         print(f'{name}: {key}.air ({len(matches[0])} bytes, sha256 {sha(matches[0])})')
     command = (source / 'src/dxmt/dxmt_command.metal').read_bytes()
-    stub = b'heartport metal cache stub for dxmt_command.metal ' + sha(command).encode() + b'\n'
+    stub = b'cupid metal cache stub for dxmt_command.metal ' + sha(command).encode() + b'\n'
     (cache / f'{sha(command)}.air').write_bytes(stub)
     lib = metallib((runtime / 'lib/wine/x86_64-windows/d3d11.dll').read_bytes())
     (cache / f'{sha(stub)}.metallib').write_bytes(lib)

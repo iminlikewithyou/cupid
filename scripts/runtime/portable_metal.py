@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/portable_metal.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Build-time Metal wrapper: keep the developer's path out of embedded AIR.
 
 Metal retains its canonical input filename even with prefix-map flags. Feeding
@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 
-# Heartport: METAL_DEVELOPER_DIR runs only the Metal tools from another developer directory
+# Cupid: METAL_DEVELOPER_DIR runs only the Metal tools from another developer directory
 # (Xcode's, where the Metal toolchain is installed), while the C/C++ build keeps the
 # Command Line Tools named by DEVELOPER_DIR.
 metal_env = dict(os.environ)

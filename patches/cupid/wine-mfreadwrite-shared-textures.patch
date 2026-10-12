@@ -18,7 +18,7 @@ index d7653c2..075e231 100644
 +    have_shared_without_mutex = SUCCEEDED(IMFAttributes_GetUINT32(reader->attributes, &MF_SA_D3D11_SHARED_WITHOUT_MUTEX,
 +            &shared_without_mutex));
 +
-+    /* Heartport: on Windows the reader hands out the decoder's or video processor's own textures,
++    /* Cupid: on Windows the reader hands out the decoder's or video processor's own textures,
 +     * which are shareable (the video processor sets MF_SA_D3D11_SHARED_WITHOUT_MUTEX on its output
 +     * stream), and Unity's video player opens every frame through IDXGIResource::GetSharedHandle.
 +     * Unless the application chose, make the reader's own samples shareable too. */

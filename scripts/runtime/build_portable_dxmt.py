@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/build_portable_dxmt.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Reconstruct and build the accepted DXMT patch against freshly built Wine tools."""
 import argparse
 import hashlib
@@ -14,10 +14,12 @@ import shutil
 import sign_pe
 
 ROOT=Path(__file__).resolve().parents[2]
-# Heartport: Recall's patches live in patches/recall/; toolchains and the signing
+# Cupid: Recall's patches live in patches/recall/; toolchains and the signing
 # certificate outside the repo, beside the build workspace.
 PATCHES_DIR=ROOT/'patches/recall'
-TOOLCHAINS=ROOT.parent/'mactopia-runtime/toolchains'
+# Cupid: the build workspace, CUPID_RUNTIME_WORKSPACE or ../cupid-runtime beside the checkout.
+WORKSPACE=Path(os.environ.get('CUPID_RUNTIME_WORKSPACE') or ROOT.parent/'cupid-runtime')
+TOOLCHAINS=WORKSPACE/'toolchains'
 # The Command Line Tools and the macOS 26.5 SDK, as for Wine (unless the caller sets them).
 DEVELOPER_DIR='/Library/Developer/CommandLineTools'
 SDKROOT='/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk'
@@ -26,8 +28,8 @@ HEADERS='9df86f2341616ef1888ae59919feaa6d4fad693d'
 # NVIDIA's NVAPI headers (MIT), a submodule of the base, for DXMT's NVAPI stand-in.
 NVAPI='d08488fcc82eef313b0464db37d2955709691e94'
 # MetalFX upscaling (1.3): DXMT's DLSS stand-in is signed with a self-made certificate
-# (Heartport's own; scripts/runtime/sign_pe.py create-certificate).
-SIGNING=ROOT.parent/'mactopia-runtime/signing/heartport-nvngx'
+# (Cupid's own; scripts/runtime/sign_pe.py create-certificate).
+SIGNING=WORKSPACE/'signing/cupid-nvngx'
 
 
 def run(*args,**kwargs):return subprocess.run([str(a) for a in args],check=True,**kwargs)
@@ -38,7 +40,7 @@ def build(work,tools,jobs,signing=SIGNING):
     if not source.exists():run('git','clone','--no-checkout','https://github.com/NerRobDog/dxmt',source)
     current=subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()
     if current!=BASE:run('git','-C',source,'checkout','--detach',BASE)
-    # Heartport: start every build from the pristine base. The patches overlap, so on a tree that
+    # Cupid: start every build from the pristine base. The patches overlap, so on a tree that
     # already carries all four, the first one neither applies nor reverses (Recall's script then
     # stops); resetting makes reruns repeatable.
     run('git','-C',source,'reset','--quiet','--hard',BASE)

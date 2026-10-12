@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/build_portable_runtime.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Build a separate Wine runtime from pinned upstream inputs; never install it.
 
 Developer tool only. The native setup worker does not require Python, Homebrew,
@@ -18,19 +18,21 @@ import subprocess
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
-# Heartport: Recall's patches live in patches/recall/; toolchains outside the repo.
+# Cupid: Recall's patches live in patches/recall/; toolchains outside the repo.
 PATCHES_DIR = ROOT / 'patches/recall'
-# Heartport's own Wine patches, applied after Recall's set (see patches/heartport/README.md).
-HEARTPORT_PATCHES_DIR = ROOT / 'patches/heartport'
-HEARTPORT_PATCHES = {
-    'wine-winemac-dock-identity.patch': '61dbeb5423bc4a37ba75f7dcb5d5e7dfec3fb1c503928417901bf96b12d00fec',
-    'wine-winemac-native-fullscreen.patch': 'c477e54aa490b3242b645dac3093310280dca24c08143b91e02c3ee6896581f0',
-    'wine-winemac-fullscreen-normal-level.patch': 'd940af08a72d3b6fe6acfb7902b6b228578d06291f6302ba50cfa3509c1b179a',
-    'wine-mfreadwrite-shared-textures.patch': '06c17dfebf4b6bd94dbdfda9ccaf036cd1a03385291c4864adeb64c3e599115c',
-    'wine-coremessaging-dispatcher-queue.patch': '817ae3656c359d249492a0e52c97e9af679adde9e8e956842e3d19b3597490bd',
+# Cupid's own Wine patches, applied after Recall's set (see patches/cupid/README.md).
+CUPID_PATCHES_DIR = ROOT / 'patches/cupid'
+CUPID_PATCHES = {
+    'wine-winemac-dock-identity.patch': '9bffbed675ca6b4635a9e1489b339923d5320eb706caac9b96e7f8cf33f5ad03',
+    'wine-winemac-native-fullscreen.patch': '1ac4047a6c38f7c921d7fa116698a8abb83a9effd5c11eec39ae13c9c1a8a48f',
+    'wine-winemac-fullscreen-normal-level.patch': 'ce7042a4a6e0b23f0ad6752008a9e3f5b9820e1e198682d6161531af80198df1',
+    'wine-mfreadwrite-shared-textures.patch': '6743b0dce57bbd50c98aec3c3a3090a987a81a4ba0bed295ea71c1197755577b',
+    'wine-coremessaging-dispatcher-queue.patch': '4460c42fd31a31afbe295739855a91eb7732e1b674ccc5d72d9c4b09a48bd818',
 }
-TOOLCHAINS = ROOT.parent / 'mactopia-runtime/toolchains'
-PREFIX_MAP = '/build/heartport'
+# Cupid: the build workspace, CUPID_RUNTIME_WORKSPACE or ../cupid-runtime beside the checkout.
+WORKSPACE = Path(os.environ.get('CUPID_RUNTIME_WORKSPACE') or ROOT.parent / 'cupid-runtime')
+TOOLCHAINS = WORKSPACE / 'toolchains'
+PREFIX_MAP = '/build/cupid'
 CONFIGURATION = 'vulkan-sdl2-ffmpeg-gstreamer-enabled-v1\n'
 SOJU = '3a350b32bf906dd2a509b18c642a5a2676de022a'
 INPUTS = {
@@ -112,22 +114,22 @@ def apply_once(source, patch):
         run(['/usr/bin/patch', '-N', '-F0', '-p1', '-i', patch], cwd=source)
 
 
-def apply_heartport_patches(wine):
-    """Apply Heartport's patches on top of Recall's set, in order.
+def apply_cupid_patches(wine):
+    """Apply Cupid's patches on top of Recall's set, in order.
 
-    The source tree keeps a copy of each applied patch in `.heartport-own-patches/` with a
+    The source tree keeps a copy of each applied patch in `.cupid-own-patches/` with a
     marker listing them, so a rerun skips what is already applied, and a patch that changed
     (or was removed) is reversed from its stored copy, together with every later one, before
-    the current set is applied. Recall's marker (`.heartport-patches.json`) is unaffected.
+    the current set is applied. Recall's marker (`.cupid-patches.json`) is unaffected.
     """
-    for name, expected in HEARTPORT_PATCHES.items():
-        if sha(HEARTPORT_PATCHES_DIR / name) != expected:
-            raise RuntimeError('A Heartport patch changed: ' + name)
-    store = wine / '.heartport-own-patches'
+    for name, expected in CUPID_PATCHES.items():
+        if sha(CUPID_PATCHES_DIR / name) != expected:
+            raise RuntimeError('A Cupid patch changed: ' + name)
+    store = wine / '.cupid-own-patches'
     store.mkdir(exist_ok=True)
     marker = store / 'applied.json'
     applied = json.loads(marker.read_text()) if marker.exists() else []
-    wanted = [[name, digest] for name, digest in HEARTPORT_PATCHES.items()]
+    wanted = [[name, digest] for name, digest in CUPID_PATCHES.items()]
     keep = 0
     while keep < min(len(applied), len(wanted)) and applied[keep] == wanted[keep]:
         keep += 1
@@ -141,7 +143,7 @@ def apply_heartport_patches(wine):
         save()
         print('Reversed ' + name, flush=True)
     for name, digest in wanted[keep:]:
-        patch = HEARTPORT_PATCHES_DIR / name
+        patch = CUPID_PATCHES_DIR / name
         run(['git', 'apply', '--check', patch], cwd=wine)
         run(['git', 'apply', patch], cwd=wine)
         shutil.copy2(patch, store / name)
@@ -157,10 +159,10 @@ def build(work, tools, headers, jobs):
     ft = extract(work, 'freetype') / 'freetype-2.13.3'
     soju = extract(work, 'soju') / ('soju-' + SOJU)
     mono = extract(work, 'mono') / 'wine-mono-10.4.1'
-    # Heartport: the patches overlap, so on a tree that carries all of them the first one
+    # Cupid: the patches overlap, so on a tree that carries all of them the first one
     # neither applies nor reverses and Recall's apply_once stops. A marker written after the
     # last patch makes reruns (a reconfigure, a new dependency) skip patching the same tree.
-    marker = wine / '.heartport-patches.json'
+    marker = wine / '.cupid-patches.json'
     applied = json.dumps({'wine-v1-canvas.patch': '33d57c155761838988d98777a7cddb1b2d00417d07b2e19ca9533221aa9b6f65',
                           'wine-mouselook.patch': '4e9d4ab2aff6ec38b03100d4802d2764efe1e33caf151cdb4c5de7a8dfa3dfdb',
                           'wine-portable-directory-boolean.patch': '9c7f811b1eb83d8c322d42509a82c1bcd786f101ce1b26fc1dc0c5badebe619b',
@@ -199,9 +201,9 @@ def build(work, tools, headers, jobs):
             raise RuntimeError('The accepted v1.0 patch changed: ' + name)
         apply_once_here(wine, p)
     marker.write_text(applied)
-    # Heartport's own driver patches (Dock identity, native fullscreen Space), inert unless
+    # Cupid's own driver patches (Dock identity, native fullscreen Space), inert unless
     # their environment variables are set.
-    apply_heartport_patches(wine)
+    apply_cupid_patches(wine)
     # The complete native driver supersedes Soju's native-window patches.
     # Omit its GOG-only Chromium injection (not used by the v6 launcher), which
     # also needs a rebase against CodeWeavers' Ubisoft environment-variable hook.
@@ -243,7 +245,7 @@ def build(work, tools, headers, jobs):
     with (logdir / 'wine.log').open('w') as log:
         configuration = builddir / '.portable-configuration'
         # 1.2 adds SDL2 (controllers other than PlayStation ones); an older tree is
-        # configured again so config.h gains SONAME_LIBSDL2. Heartport adds FFmpeg (winedmo,
+        # configured again so config.h gains SONAME_LIBSDL2. Cupid adds FFmpeg (winedmo,
         # Media Foundation demuxing), so a tree configured without it is configured again.
         if (not (builddir / 'Makefile').exists() or not configuration.exists()
                 or configuration.read_text() != CONFIGURATION):
@@ -260,7 +262,7 @@ def build(work, tools, headers, jobs):
                  'SDL2_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lSDL2',
                  'FFMPEG_CFLAGS=-I' + str(work / 'clean-deps/include'),
                  'FFMPEG_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lavutil -lavformat -lavcodec',
-                 # Heartport: GStreamer (clean-deps, build_portable_dependencies.py) for
+                 # Cupid: GStreamer (clean-deps, build_portable_dependencies.py) for
                  # winegstreamer, Wine's Media Foundation and DirectShow decoders.
                  'GSTREAMER_CFLAGS=' + ' '.join('-I' + str(work / 'clean-deps' / d) for d in
                      ('include/gstreamer-1.0', 'include/glib-2.0', 'lib/glib-2.0/include')),
@@ -321,7 +323,7 @@ def build(work, tools, headers, jobs):
               'soju_compatibility_patches': PATCHES,
               'directory_boolean_patch_sha256': sha(directory_patch),
               'v1_patches': V1_PATCHES,
-              'heartport_patches': HEARTPORT_PATCHES,
+              'cupid_patches': CUPID_PATCHES,
               'gnutls_header_sha256': sha(headers / 'gnutls/gnutls.h'),
               'minimum_macos': '26.0', 'runtime_scope': 'Wine + FreeType built from source; DXMT assembly is separate',
               'without_vulkan': False, 'without_gstreamer': False, 'with_sdl2': True, 'with_ffmpeg': True,

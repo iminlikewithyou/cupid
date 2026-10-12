@@ -2,7 +2,7 @@
 """Side-by-side Markdown table of two analyzed captures, in the layout of
 Recall's docs/PERFORMANCE.md.
 
-    scripts/bench/compare.py <label-a> <label-b> --names "CrossOver" "Heartport"
+    scripts/bench/compare.py <label-a> <label-b> --names "CrossOver" "Cupid"
 
 A is the baseline, B the candidate; the last column reads "B vs. A". Each
 label is a bench/<label> folder (or a path to a metrics.json) that

@@ -6,7 +6,7 @@ index 4da4676..8e1f360 100644
      // CrossOver Hack 10912: Mac Edit menu
      - (BOOL) isEditMenuAction:(SEL)selector;
  
-+    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
++    /* Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
 +    - (void) updateFullscreenPresentation;
 +
  @end
@@ -23,13 +23,13 @@ index 53420fe..ad2cfeb 100644
 +        if (fullscreen_normal_level_allowed)
 +            [self updateFullscreenPresentation];
  
-         /* Heartport: a native-fullscreen window enters its Space only while
+         /* Cupid: a native-fullscreen window enters its Space only while
             the application is active (WINEMAC_NATIVE_FULLSCREEN). */
 @@ -3335,6 +3337,43 @@ - (void)applicationDidChangeScreenParameters:(NSNotification *)notification
          forceNextMouseMoveAbsolute = TRUE;
      }
  
-+    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  While the key window is a
++    /* Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  While the key window is a
 +       normal-level fullscreen window (-[WineWindow fullscreenNormalLevel]) and the
 +       application is active, the menu bar and Dock auto-hide; otherwise the
 +       presentation options the application had before come back. */
@@ -83,10 +83,10 @@ index 9025da8..f5f3abb 100644
 --- a/dlls/winemac.drv/cocoa_window.h
 +++ b/dlls/winemac.drv/cocoa_window.h
 @@ -130,4 +130,7 @@ - (void) setRetinaMode:(BOOL)mode;
-     /* Heartport: WINEMAC_NATIVE_FULLSCREEN. */
+     /* Cupid: WINEMAC_NATIVE_FULLSCREEN. */
      - (void) scheduleNativeFullscreenCheck;
  
-+    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
++    /* Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL. */
 +    - (BOOL) fullscreenNormalLevel;
 +
  @end
@@ -95,11 +95,11 @@ index 9208e4b..eebf8d4 100644
 --- a/dlls/winemac.drv/cocoa_window.m
 +++ b/dlls/winemac.drv/cocoa_window.m
 @@ -1272,7 +1272,10 @@ - (NSInteger) minimumLevelForActive:(BOOL)active
-             /* Heartport: a native-fullscreen window stays at the normal level;
+             /* Cupid: a native-fullscreen window stays at the normal level;
                 its Space keeps it in front.  One that the player took out of
                 its Space, or that refused the Space's frame, floats as before. */
 -            if (captured || (fullscreen && (![self nativeFullscreenCandidate] || nativeFullscreenDeclined)))
-+            /* Heartport: so does a WINEMAC_FULLSCREEN_NORMAL_LEVEL window; the
++            /* Cupid: so does a WINEMAC_FULLSCREEN_NORMAL_LEVEL window; the
 +               menu bar and Dock auto-hide while it is key instead. */
 +            if (captured || (fullscreen && (![self nativeFullscreenCandidate] || nativeFullscreenDeclined) &&
 +                             ![self fullscreenNormalLevel]))
@@ -114,12 +114,12 @@ index 9208e4b..eebf8d4 100644
 +            [[WineApplicationController sharedController] updateFullscreenPresentation];
      }
  
-     /* Heartport: WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen
+     /* Cupid: WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen
 @@ -1988,6 +1993,17 @@ - (BOOL) nativeFullscreenCandidate
                 !self.parentWindow && !self.latentParentWindow && !macdrv_v1_canvas_requested(self);
      }
  
-+    /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  A listed program's fullscreen
++    /* Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL.  A listed program's fullscreen
 +       window (borderless, covering a screen) keeps the normal window level while
 +       the application is active, so notification banners draw over it, and the
 +       application auto-hides the menu bar and Dock while it is key (see
@@ -161,9 +161,9 @@ index 1009c5b..8237a18 100644
 @@ -150,6 +150,7 @@
  extern bool mouselook_allowed;  /* This process may use mouselook (WINEMAC_MOUSELOOK lists its exe). */
  extern char mouselook_process[64];
- extern bool native_fullscreen_allowed;  /* Heartport: WINEMAC_NATIVE_FULLSCREEN lists this process's exe. */
-+extern bool fullscreen_normal_level_allowed;  /* Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL lists it. */
- /* Heartport: the Dock identity from the environment, read by setup_options.
+ extern bool native_fullscreen_allowed;  /* Cupid: WINEMAC_NATIVE_FULLSCREEN lists this process's exe. */
++extern bool fullscreen_normal_level_allowed;  /* Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL lists it. */
+ /* Cupid: the Dock identity from the environment, read by setup_options.
     app_display_name (WINEMAC_APP_NAME) is set only when LaunchServices offers
     the private call that renames a running application. */
 diff --git a/dlls/winemac.drv/macdrv_main.c b/dlls/winemac.drv/macdrv_main.c
@@ -185,7 +185,7 @@ index 8982abd..fa85f0a 100644
 +/***********************************************************************
 + *              setup_fullscreen_normal_level
 + *
-+ * Heartport: WINEMAC_FULLSCREEN_NORMAL_LEVEL, a list like
++ * Cupid: WINEMAC_FULLSCREEN_NORMAL_LEVEL, a list like
 + * WINEMAC_NATIVE_FULLSCREEN.  A listed program's fullscreen windows stay at
 + * the normal window level, with the menu bar and Dock hidden while one is
 + * key, instead of floating at NSStatusWindowLevel + 1 (cocoa_window.m).

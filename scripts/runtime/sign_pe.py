@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Derived from Recall (https://github.com/AsherJN/recall, commit 61a3a59), scripts/sign_pe.py,
 # Copyright 2026 Joshua Asher Nelson, licensed under the Apache License 2.0.
-# Modified for Heartport (see scripts/runtime/README.md for the list of changes).
+# Modified for Cupid (see scripts/runtime/README.md for the list of changes).
 """Authenticode signing for DXMT's DLSS stand-in (nvngx.dll).
 
 NVIDIA's NGX loader loads its core DLL only when the file carries an embedded signature that
@@ -10,7 +10,7 @@ an untrusted root passes (tested 2026-10-06), so Recall signs the stand-in with 
 certificate, made once by this script, rather than a paid one; if Wine ever enforces trust,
 the fallback is a CA-issued certificate.
 
-  create-certificate DIR   a "Heartport Root" CA and a "Heartport" code-signing certificate
+  create-certificate DIR   a "Cupid Root" CA and a "Cupid" code-signing certificate
                            issued by it (RSA 3072, 20 years). Keys stay outside git under
                            runtime/; losing them only means making new ones.
   sign DIR IN OUT          signs IN (SHA-256 Authenticode) as OUT with DIR's certificate
@@ -29,8 +29,8 @@ import subprocess
 import sys
 import tempfile
 
-# Heartport: its own certificate names (Recall's were recall*.der/key, "Recall Root"/"Recall").
-KEY, LEAF, ROOT, ROOT_KEY = 'heartport.key', 'heartport.der', 'heartport-root.der', 'heartport-root.key'
+# Cupid: its own certificate names (Recall's were recall*.der/key, "Recall Root"/"Recall").
+KEY, LEAF, ROOT, ROOT_KEY = 'cupid.key', 'cupid.der', 'cupid-root.der', 'cupid-root.key'
 DAYS = 20 * 365
 
 
@@ -165,9 +165,9 @@ def create_certificate(folder):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         (tmp / 'root.cnf').write_text('[req]\ndistinguished_name=dn\nprompt=no\nx509_extensions=v3\n'
-                                      '[dn]\nCN=Heartport Root\n[v3]\nbasicConstraints=critical,CA:TRUE\n'
+                                      '[dn]\nCN=Cupid Root\n[v3]\nbasicConstraints=critical,CA:TRUE\n'
                                       'keyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n')
-        (tmp / 'request.cnf').write_text('[req]\ndistinguished_name=dn\nprompt=no\n[dn]\nCN=Heartport\n')
+        (tmp / 'request.cnf').write_text('[req]\ndistinguished_name=dn\nprompt=no\n[dn]\nCN=Cupid\n')
         (tmp / 'leaf.cnf').write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\n'
                                       'extendedKeyUsage=codeSigning\nsubjectKeyIdentifier=hash\n'
                                       'authorityKeyIdentifier=keyid\n')
@@ -183,7 +183,7 @@ def create_certificate(folder):
         run('x509', '-in', tmp / 'leaf.pem', '-outform', 'der', '-out', folder / LEAF)
     for name in (KEY, ROOT_KEY):
         (folder / name).chmod(0o600)
-    print(f'Created the "Heartport" code-signing certificate in {folder}; '
+    print(f'Created the "Cupid" code-signing certificate in {folder}; '
           f'SHA-256 {hashlib.sha256((folder / LEAF).read_bytes()).hexdigest()}')
 
 
