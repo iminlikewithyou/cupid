@@ -95,6 +95,31 @@ final class SessionTests: XCTestCase {
         XCTAssertEqual(SessionSnapshot(processes: [], runtimesDir: "/d/runtime", wineserverPath: "").isAlive, false)
     }
 
+    func testInstallerStagesToActivate() {
+        let rt = "/d/runtime/r"
+        func process(_ pid: Int32, _ argv0: String) -> WineProcess { .init(pid: pid, path: "\(rt)/lib/wine/x86_64-unix/wine", argv0: argv0) }
+        func window(_ pid: Int32, layer: Int = 0, width: Int = 480, height: Int = 360) -> WindowInfo {
+            WindowInfo(pid: pid, owner: "wine", title: "", layer: layer, x: 0, y: 0, width: width, height: height)
+        }
+        let snap = SessionSnapshot(processes: [
+            process(10, #"C:\windows\system32\services.exe"#),
+            process(20, "/d/downloads/TapTap_Global_PC_Setup_0.3.0.1000.exe"),           // language choice
+            process(21, #"C:\users\player\AppData\Local\Temp\is-ABC.tmp\setup.exe"#), // install
+            process(22, "/d/tmp/finish.exe"),                                                // "Installation complete"
+            process(30, #"C:\Program Files\TapTapGlobal\TapTapGlobal.exe"#),
+        ], runtimesDir: "/d/runtime", wineserverPath: "\(rt)/bin/wineserver", installerDirs: ["/d/downloads", "/d/tmp"])
+        XCTAssertEqual(snap.installer.map(\.pid), [20, 21, 22])
+        // Only installer processes with a real window; services and TapTap never.
+        let windows = [window(10), window(20), window(21, width: 1, height: 1), window(22, layer: 3), window(30)]
+        XCTAssertEqual(snap.installerPIDsToActivate(windows: windows, done: []), [20])
+        XCTAssertEqual(snap.installerPIDsToActivate(windows: windows, done: [20]), [])
+        // The next stage's window appears: only it is new.
+        let later = windows + [window(21)]
+        XCTAssertEqual(snap.installerPIDsToActivate(windows: later, done: [20]), [21])
+        XCTAssertEqual(snap.installerPIDsToActivate(windows: later + [window(22)], done: [20, 21]), [22])
+        XCTAssertEqual(snap.installerPIDsToActivate(windows: [], done: []), [])
+    }
+
     /// A live process whose binary sits at `<data>/runtime/<v>/bin/wineserver` is detected through
     /// proc_listallpids + proc_pidpath (a copy of /bin/sleep stands in; no Wine involved).
     func testLiveWineserverDetection() throws {

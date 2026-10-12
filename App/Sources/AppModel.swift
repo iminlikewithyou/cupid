@@ -89,6 +89,12 @@ final class AppModel: ObservableObject {
     private var refreshing = false
     private var firstRefreshDone = false
     private var timer: Timer?
+    /// Brings each installer stage's window to the front while the TapTap step has the installer
+    /// at work (fresh-install run 4: the later stages opened behind Heartport).
+    private var installerWatch: Timer?
+    /// Installer pids already activated during this TapTap step.
+    private var installerActivated: Set<Int32> = []
+    private var installerCheckRunning = false
     /// This app instance started (or is starting) the TapTap launcher with Heartport's flags.
     private var startedLauncher = false
     /// The launcher was running at the last refresh.
@@ -205,6 +211,7 @@ final class AppModel: ObservableObject {
         // through several states in a few seconds, and the step dots flipped between TapTap
         // and Download with it (fresh run 3). The operation's completion refreshes.
         if activity == nil || phase == nil { phase = new.phase }
+        updateInstallerWatch()
         hud = new.state.hud ?? false
         fullscreen = new.state.fullscreen
         freeBytes = Self.availableBytes(near: paths.dataRoot)
@@ -423,8 +430,48 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Watches while the TapTap step shows the installer at work (or Heartport is starting it);
+    /// stops, forgetting the activated pids, when the step ends.
+    private func updateInstallerWatch(starting: Bool = false) {
+        guard !previewing else { return }
+        guard case .taptap(let running)? = phase else {
+            installerWatch?.invalidate()
+            installerWatch = nil
+            installerActivated = []
+            return
+        }
+        guard running || starting, installerWatch == nil else { return }
+        installerWatch = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkInstallerWindows() }
+        }
+    }
+
+    private func checkInstallerWindows() {
+        guard !installerCheckRunning else { return }
+        installerCheckRunning = true
+        let paths = paths
+        let done = installerActivated
+        Task.detached(priority: .userInitiated) {
+            let snapshot = SessionSnapshot.take(paths)
+            let pids = snapshot.installer.map(\.pid)
+            let windows = pids.isEmpty ? [] : WindowInfo.list(pids: Set(pids))
+            let new = snapshot.installerPIDsToActivate(windows: windows, done: done)
+            await MainActor.run {
+                self.installerCheckRunning = false
+                // The step may have ended meanwhile.
+                guard self.installerWatch != nil else { return }
+                let fresh = new.filter { !self.installerActivated.contains($0) }
+                guard !fresh.isEmpty else { return }
+                self.installerActivated.formUnion(fresh)
+                Logs.append(paths, "app: installer window on screen (pid \(fresh.map(String.init).joined(separator: ", "))); bringing it to the front")
+                Operations.activate(fresh)
+            }
+        }
+    }
+
     private func runInstaller() {
         let paths = paths
+        updateInstallerWatch(starting: true)
         perform("Starting the TapTap installer") { r in
             r.line("Opening the installer")
             let pid = try TapTapInstaller.run(paths)

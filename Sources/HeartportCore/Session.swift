@@ -184,7 +184,20 @@ public struct WindowInfo: Sendable, Codable, Equatable {
 
     /// The game's window: owned by the xdt.exe process (owner name "Heartopia", the xdt.app loader).
     public static func game(pid: Int32) -> WindowInfo? {
-        list(pids: [pid]).first { $0.layer == 0 && $0.width > 1 && $0.height > 1 }
+        list(pids: [pid]).first(where: \.isOnScreenWindow)
+    }
+
+    /// A normal-level window larger than a placeholder.
+    public var isOnScreenWindow: Bool { layer == 0 && width > 1 && height > 1 }
+}
+
+extension SessionSnapshot {
+    /// The installer's processes (one per stage: language choice, install, "Installation
+    /// complete") that have an on-screen window in `windows` and are not in `done`, in snapshot
+    /// order: the stages still to bring to the front, once each.
+    public func installerPIDsToActivate(windows: [WindowInfo], done: Set<Int32>) -> [Int32] {
+        let shown = Set(windows.filter(\.isOnScreenWindow).map(\.pid))
+        return installer.map(\.pid).filter { shown.contains($0) && !done.contains($0) }
     }
 }
 
