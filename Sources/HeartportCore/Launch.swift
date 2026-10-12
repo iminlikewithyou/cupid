@@ -49,6 +49,8 @@ public struct GameLauncher: Sendable {
 
         try paths.createLayout()
         if try DxmtConfig.write(to: paths.dxmtConf) { log("Wrote \(paths.dxmtConf.path)") }
+        // A moved or reinstalled runtime leaves dangling ntdll.so links in the loader's cache.
+        for dir in LoaderCache.removeStaleEntries() { log("Removed stale loader cache entry \(dir.lastPathComponent)") }
 
         let marker = Logs.dxmtInfoMarker(paths)
         let dxmtInfo = options.dxmtInfoLog ?? !fm.fileExists(atPath: marker.path)
