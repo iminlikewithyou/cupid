@@ -117,8 +117,18 @@ GST_PLUGIN_SYSTEM_PATH_1_0=<rt>/lib/gstreamer-1.0  GST_PLUGIN_PATH_1_0=<rt>/lib/
 GST_REGISTRY_1_0=<data>/cache/gstreamer-registry.bin  GST_REGISTRY_FORK=no  (GST_DEBUG unset)
 WINEMAC_MOUSELOOK=xdt.exe  WINE_GAME_MODE=xdt.exe
 WINE_NO_DOCK_ICON=TapTapGlobal.exe
+WINEMAC_APP_NAME=Heartopia  WINEMAC_NATIVE_FULLSCREEN=xdt.exe
+WINEMAC_APP_ICON=<rt>/lib/wine/game-mode/xdt.app/Contents/Resources/Heartopia.icns  (only if it exists)
 HOME=<data>/home  USER=player  TMPDIR=<data>/tmp
 ```
+
+The three `WINEMAC_APP_*`/`WINEMAC_NATIVE_FULLSCREEN` variables are read by Heartport's own Mac
+driver patches (`patches/heartport/`, runtime `heartport-20261012.4` on) and ignored by older
+runtimes: the Dock and Cmd-Tab name the game "Heartopia" with the Game Mode bundle's icon, and
+the game's fullscreen window (borderless, covering the screen) gets its own fullscreen Space at
+the normal window level. `GameModeBundle` writes the icon when it creates `xdt.app`. They are set
+for every Wine process; only a process that shows a Dock icon is renamed (TapTap's launcher has
+none, `WINE_NO_DOCK_ICON`).
 
 `dxmt.conf` (rewritten before each launch whenever it differs from the template, so a
 changed template reaches existing installs on their next play):

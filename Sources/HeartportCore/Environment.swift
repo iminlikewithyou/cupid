@@ -28,7 +28,11 @@ public enum LaunchEnvironment {
     public static let hudElements = "device,rosetta,layersize,memory,gamemode,fps,gputime,frameinterval,frameintervalgraph,shaders"
     public static let path = "/usr/bin:/bin:/usr/sbin:/sbin"
 
-    /// Pure: the full environment for a Wine process.
+    /// The Dock name of the game (WINEMAC_APP_NAME, Heartport's Mac driver patch).
+    public static let appName = "Heartopia"
+
+    /// The full environment for a Wine process. Pure apart from one file check: the Dock icon
+    /// (`WINEMAC_APP_ICON`) is set only when the Game Mode bundle's icon exists.
     public static func build(paths: Paths, options: Options = Options(),
                              inherited: [String: String] = [:]) -> [String: String] {
         var env = inherited.filter { key, _ in !strippedPrefixes.contains { key.hasPrefix($0) } }
@@ -65,6 +69,12 @@ public enum LaunchEnvironment {
             "WINEMAC_MOUSELOOK": Game.exeName,
             "WINE_GAME_MODE": Game.exeName,
             "WINE_NO_DOCK_ICON": Game.launcherExeName,
+            // Heartport's Mac driver patches (heartport-20261012.4 on; ignored by older runtimes):
+            // the Dock shows "Heartopia" (and the icon below) instead of "xdt" and the exe's icon,
+            // and the game's fullscreen window gets its own fullscreen Space at the normal window
+            // level instead of floating above notifications and Mission Control.
+            "WINEMAC_APP_NAME": appName,
+            "WINEMAC_NATIVE_FULLSCREEN": Game.exeName,
             // GStreamer (winegstreamer's Media Foundation decoders): only the runtime's own
             // plugins, a registry in the data folder, and in-process plugin scanning (no
             // gst-plugin-scanner is shipped). GST_DEBUG stays unset (GST_ is stripped above).
@@ -77,6 +87,10 @@ public enum LaunchEnvironment {
             "TMPDIR": paths.tmp.path,
         ]
         env.merge(contract) { _, new in new }
+        let icon = paths.gameModeApp.appendingPathComponent(GameModeBundle.iconFile)
+        if FileManager.default.fileExists(atPath: icon.path) {
+            env["WINEMAC_APP_ICON"] = icon.path
+        }
         if options.dxmtInfoLog {
             env["DXMT_LOG_LEVEL"] = "info"
             env.removeValue(forKey: "DXMT_LOG_PATH")

@@ -32,6 +32,7 @@ final class EnvironmentTests: XCTestCase {
             "DXMT_LOG_LEVEL": "error", "DXMT_LOG_PATH": "none",
             "WINEMAC_MOUSELOOK": "xdt.exe", "WINE_GAME_MODE": "xdt.exe",
             "WINE_NO_DOCK_ICON": "TapTapGlobal.exe",
+            "WINEMAC_APP_NAME": "Heartopia", "WINEMAC_NATIVE_FULLSCREEN": "xdt.exe",
             "GST_PLUGIN_SYSTEM_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_PLUGIN_PATH_1_0": "\(rt)/lib/gstreamer-1.0",
             "GST_REGISTRY_1_0": "\(data)/cache/gstreamer-registry.bin",
@@ -42,6 +43,27 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(env, expected)
         XCTAssertNil(env["MTL_HUD_ENABLED"])
         XCTAssertNil(env["WINEMAC_INPUT_STATS"])
+        // No Game Mode bundle icon at this path: no WINEMAC_APP_ICON.
+        XCTAssertNil(env["WINEMAC_APP_ICON"])
+    }
+
+    func testDockIconFromTheGameModeBundle() throws {
+        let root = try tempDir()
+        let p = Paths(dataRoot: root, runtimeVersion: "heartport-20261012.4")
+        XCTAssertNil(LaunchEnvironment.build(paths: p)["WINEMAC_APP_ICON"])
+        let icon = p.gameModeApp.appendingPathComponent(GameModeBundle.iconFile)
+        XCTAssertEqual(icon.path, p.runtime.path + "/lib/wine/game-mode/xdt.app/Contents/Resources/Heartopia.icns")
+        try FileManager.default.createDirectory(at: icon.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([0x69, 0x63, 0x6e, 0x73]).write(to: icon)
+        let env = LaunchEnvironment.build(paths: p)
+        XCTAssertEqual(env["WINEMAC_APP_ICON"], icon.path)
+        XCTAssertEqual(env["WINEMAC_APP_NAME"], "Heartopia")
+        XCTAssertEqual(env["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        // An inherited value never survives (WINE* is stripped), with or without the icon.
+        let inherited = ["WINEMAC_APP_ICON": "/tmp/x.icns", "WINEMAC_APP_NAME": "x", "WINEMAC_NATIVE_FULLSCREEN": "other.exe"]
+        XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_APP_ICON"], icon.path)
+        XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        XCTAssertNil(LaunchEnvironment.build(paths: paths, inherited: inherited)["WINEMAC_APP_ICON"])
     }
 
     func testInheritedVariablesAreStripped() {
