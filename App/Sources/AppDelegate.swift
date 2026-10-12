@@ -87,6 +87,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         return true
     }
 
+    /// Free space may have changed while away (the welcome screen's Get Started depends on it).
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if window?.isVisible == true { model.refresh() }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     // MARK: menu

@@ -32,29 +32,30 @@ struct ContentView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            HeroHeader()
-                .padding(.top, 40) // clears the traffic lights
+        Group {
             if model.welcome {
-                WelcomeCard(model: model)
-                    .padding(.top, 24)
+                WelcomeView(model: model)
             } else {
-                StepDots(current: model.step)
-                    .padding(.top, 24)
-                    .padding(.horizontal, 8)
-                StepCard(model: model)
-                    .padding(.top, 24)
+                VStack(spacing: 0) {
+                    HeroHeader()
+                        .padding(.top, 40) // clears the traffic lights
+                    StepDots(current: model.step)
+                        .padding(.top, 24)
+                        .padding(.horizontal, 8)
+                    StepCard(model: model)
+                        .padding(.top, 24)
+                    Callouts(model: model)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
             }
-            Callouts(model: model)
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
         .fixedSize(horizontal: false, vertical: true)
         // The welcome window hugs this height; the other steps use the fixed 600.
         .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { model.contentHeight = $0 }
         .frame(width: Self.size.width)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background { Backdrop() }
+        .background { Backdrop(rich: model.welcome) }
         .ignoresSafeArea()
         .tint(Brand.accent)
     }
@@ -63,14 +64,26 @@ struct ContentView: View {
 // MARK: - Hero
 
 private struct Backdrop: View {
+    /// The welcome screen's wash: deeper, over the full height, with a glow behind the icon.
+    var rich = false
     @Environment(\.colorScheme) private var scheme
     var body: some View {
+        let dark = scheme == .dark
         ZStack {
             Color(nsColor: .windowBackgroundColor)
-            LinearGradient(colors: [Brand.pink.opacity(scheme == .dark ? 0.24 : 0.30), Brand.pink.opacity(0)],
-                           startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.48))
-            RadialGradient(colors: [Brand.pink.opacity(scheme == .dark ? 0.16 : 0.20), .clear],
-                           center: UnitPoint(x: 0.5, y: 0.12), startRadius: 0, endRadius: 220)
+            if rich {
+                LinearGradient(stops: [.init(color: Brand.pink.opacity(dark ? 0.40 : 0.46), location: 0),
+                                       .init(color: Brand.pink.opacity(dark ? 0.16 : 0.18), location: 0.55),
+                                       .init(color: Brand.pink.opacity(0), location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [Brand.pink.opacity(dark ? 0.30 : 0.34), .clear],
+                               center: UnitPoint(x: 0.5, y: 0.22), startRadius: 0, endRadius: 240)
+            } else {
+                LinearGradient(colors: [Brand.pink.opacity(dark ? 0.24 : 0.30), Brand.pink.opacity(0)],
+                               startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.48))
+                RadialGradient(colors: [Brand.pink.opacity(dark ? 0.16 : 0.20), .clear],
+                               center: UnitPoint(x: 0.5, y: 0.12), startRadius: 0, endRadius: 220)
+            }
         }
     }
 }
@@ -171,34 +184,98 @@ private struct CardChrome: ViewModifier {
     }
 }
 
-/// First run: what setup involves and how much space it needs, before any step's own card.
-private struct WelcomeCard: View {
+/// First run: one composition (icon, title, three facts, Get Started) instead of a step card.
+private struct WelcomeView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+
+    private var short: Bool { SetupSpace.isShort(available: model.freeBytes) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(spacing: 0) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 128, height: 128)
+                .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+                .scaleEffect(appeared || reduceMotion ? 1 : 0.9)
+                .entrance(appeared, delay: 0)
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
                 Text("Welcome to Heartport")
-                    .font(.title2.weight(.semibold))
-                Text("Heartport sets up everything Heartopia needs on this Mac in a few steps. Two of them happen in TapTap's own windows and need a few clicks from you; the rest is automatic. Allow about 15 minutes plus the game download.")
-                    .font(.body)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 34, weight: .bold))
+                Text("Heartopia ported to Mac")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                DetailRow("internaldrive", "About \(SetupSpace.totalGB) GB of free space in total, mostly the game")
-                if SetupSpace.isShort(available: model.freeBytes), let free = model.freeBytes {
-                    StatusRow(ok: false, "This Mac has \(free / 1_000_000_000) GB free; setup needs about \(SetupSpace.totalGB) GB")
+            .padding(.top, 24)
+            .entrance(appeared, delay: 0.1)
+            Text("Heartport sets up everything Heartopia needs on this Mac in a few steps. Two of them need a few clicks from you; the rest is automatic.")
+                .font(.body)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 400)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 16)
+                .entrance(appeared, delay: 0.18)
+            HStack(alignment: .top, spacing: 16) {
+                Fact("clock", "About 15 minutes, plus the game download")
+                if short, let free = model.freeBytes {
+                    Fact("exclamationmark.triangle.fill", "This Mac only has \(free / 1_000_000_000) GB free.", warning: true)
+                } else {
+                    Fact("internaldrive", "About \(SetupSpace.totalGB) GB of free space")
                 }
+                Fact("lock.shield", "Nothing else on your Mac changes")
             }
-            HStack {
-                Spacer(minLength: 0)
-                Button("Get Started") { model.getStarted() }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
+            .padding(.top, 32)
+            .entrance(appeared, delay: 0.26)
+            Button { model.getStarted() } label: {
+                Text("Get Started").frame(width: 200)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .disabled(short)
+            .padding(.top, 32)
+            .entrance(appeared, delay: 0.34)
         }
-        .modifier(CardChrome())
+        .padding(.top, 56) // under the traffic lights
+        .padding(.horizontal, 32)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity)
+        .onAppear { appeared = true }
+    }
+}
+
+private struct Fact: View {
+    let systemImage: String
+    let text: String
+    var warning = false
+    init(_ systemImage: String, _ text: String, warning: Bool = false) {
+        self.systemImage = systemImage; self.text = text; self.warning = warning
+    }
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .frame(height: 28)
+            Text(text)
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(warning ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private extension View {
+    /// Fades in on first show, staggered by `delay` (about 0.5 s for the whole welcome screen).
+    /// With Reduce Motion the fade stays and the scale is dropped by the caller.
+    func entrance(_ shown: Bool, delay: Double) -> some View {
+        opacity(shown ? 1 : 0)
+            .animation(.easeOut(duration: 0.3).delay(delay), value: shown)
     }
 }
 
@@ -312,7 +389,7 @@ private struct StepCard: View {
         case .runtime?:
             DetailRow("internaldrive", "About 1.5 GB, one or two minutes")
         case .prefix?:
-            DetailRow("lock.shield", "Kept inside Heartport's own folder; nothing else on your Mac changes")
+            EmptyView()
         case .taptap(let installerRunning)?:
             VStack(alignment: .leading, spacing: 12) {
                 NumberedStep(1, "checkmark.circle",
