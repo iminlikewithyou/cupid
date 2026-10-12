@@ -15,6 +15,7 @@ setup states. Nothing in it touches Steam.
 ```
 Cupid/                                  Swift package + app sources
 ├── Package.swift
+├── VERSION                                app version (read by build-app.sh, written by release.sh)
 ├── Sources/CupidCore/                  all logic, no UI, testable
 ├── Sources/cupid/                      CLI: setup | play | status | stop | update | uninstall | logs
 ├── App/                                   AppKit/SwiftUI shell (thin)
@@ -26,7 +27,8 @@ Cupid/                                  Swift package + app sources
 ├── scripts/
 │   ├── runtime/                           builds Cupid's Wine + DXMT runtime from pinned sources
 │   ├── fetch-runtime.sh                   fallback: Recall 1.3.0's prebuilt runtime, sha256-pinned
-│   └── build-app.sh                       bundle, codesign (ad hoc or Developer ID), DMG
+│   ├── build-app.sh                       bundle, codesign (ad hoc or Developer ID), DMG
+│   └── release.sh                         VERSION bump, test, DMG + sha256 + notes, commit, tag
 └── docs/
 ```
 

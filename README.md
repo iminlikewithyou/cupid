@@ -55,6 +55,10 @@ scripts/build-app.sh [--dmg]   # build/Cupid.app, ad hoc signed
 `scripts/fetch-runtime.sh` fetches Recall's prebuilt runtime instead, which lacks Cupid's
 patches.
 
+`scripts/release.sh <version>` writes `VERSION`, builds and tests, makes the DMG, its
+sha256 and release notes, commits and tags, then prints the push and `gh release` commands
+(`--dry-run` skips the commit and tag, `--publish` runs the commands).
+
 The app bundles a command-line tool at `Cupid.app/Contents/Helpers/cupid` with the same
 engine; run `cupid --help`.
 

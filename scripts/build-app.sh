@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # build-app.sh: build Cupid.app (and optionally a DMG) from this package.
 #
-#   scripts/build-app.sh [--dmg] [--identity NAME]
+#   scripts/build-app.sh [--dmg] [--identity NAME] [--version X]
+#
+# The version comes from the VERSION file at the repo root (--version overrides it for a local
+# build); scripts/release.sh writes that file.
 #
 # 1. Refuses to build unless Resources/runtime/runtime.tar.gz exists and its sha256 matches the
 #    pin in docs/PHASE2.md (fetch it with scripts/fetch-runtime.sh).
@@ -20,10 +23,10 @@
 set -euo pipefail
 
 TAR_SHA256="66ce2eabdbe14572d4bcb485321570bdd1128647aa64f6111642f9f073f92c34"
-VERSION="0.2.0"
 BUILD_NUMBER="1"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+VERSION=""
 BUILD="$REPO/build"
 APP="$BUILD/Cupid.app"
 make_dmg=0; identity="-"
@@ -31,13 +34,20 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --dmg) make_dmg=1 ;;
         --identity) shift; identity="${1:?--identity needs a value}" ;;
-        -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+        --version) shift; VERSION="${1:?--version needs a value}" ;;
+        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
     shift
 done
 die() { echo "ERROR: $*" >&2; exit 1; }
 step() { echo "== $*"; }
+if [ -z "$VERSION" ]; then
+    [ -f "$REPO/VERSION" ] || die "$REPO/VERSION is missing (it holds the app version, e.g. 0.2.0)"
+    VERSION="$(tr -d '[:space:]' < "$REPO/VERSION")"
+    [ -n "$VERSION" ] || die "$REPO/VERSION is empty"
+fi
+step "Cupid $VERSION ($BUILD_NUMBER)"
 
 # 1. runtime archive: Cupid's own build (runtime-archive.json beside it, written by
 #    scripts/runtime/assemble_portable_runtime.py) or Recall's (pinned here and in docs/PHASE2.md).
