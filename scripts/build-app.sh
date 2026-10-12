@@ -9,7 +9,8 @@
 # 3. Assembles build/Heartport.app:
 #      Contents/MacOS/Heartport                 the app
 #      Contents/Helpers/heartport               the CLI
-#      Contents/Resources/runtime.tar.gz       Recall 1.3.0's runtime, untouched
+#      Contents/Resources/runtime.tar.gz       the runtime (Heartport's build, or Recall 1.3.0's)
+#      Contents/Resources/runtime-archive.json  its version and sha256 (Heartport builds only)
 #      Contents/Resources/config/dxmt.conf     [xdt.exe] profile template
 #      Contents/Resources/Licenses/            Recall's licenses/ tree (from the tarball), Recall's
 #                                              NOTICE and Apache-2.0 text, Heartport's LICENSE
@@ -38,13 +39,22 @@ done
 die() { echo "ERROR: $*" >&2; exit 1; }
 step() { echo "== $*"; }
 
-# 1. runtime archive
+# 1. runtime archive: Heartport's own build (runtime-archive.json beside it, written by
+#    scripts/runtime/assemble_portable_runtime.py) or Recall's (pinned here and in docs/PHASE2.md).
 TARBALL="$REPO/Resources/runtime/runtime.tar.gz"
-grep -q "$TAR_SHA256" "$REPO/docs/PHASE2.md" || die "the runtime pin in this script differs from docs/PHASE2.md"
-[ -f "$TARBALL" ] || die "$TARBALL is missing. Run scripts/fetch-runtime.sh first."
+DESCRIPTOR="$REPO/Resources/runtime/runtime-archive.json"
+[ -f "$TARBALL" ] || die "$TARBALL is missing. Run scripts/fetch-runtime.sh, or copy a build from scripts/runtime."
+if [ -f "$DESCRIPTOR" ]; then
+    TAR_SHA256="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$DESCRIPTOR")"
+    RUNTIME_VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$DESCRIPTOR")"
+    step "Runtime $RUNTIME_VERSION (Heartport build)"
+else
+    grep -q "$TAR_SHA256" "$REPO/docs/PHASE2.md" || die "the runtime pin in this script differs from docs/PHASE2.md"
+    step "Runtime phase2-20261007.3 (Recall 1.3.0)"
+fi
 step "Checking runtime.tar.gz sha256"
 got="$(shasum -a 256 "$TARBALL" | cut -d' ' -f1)"
-[ "$got" = "$TAR_SHA256" ] || die "runtime.tar.gz sha256 $got does not match the pin $TAR_SHA256"
+[ "$got" = "$TAR_SHA256" ] || die "runtime.tar.gz sha256 $got does not match $TAR_SHA256"
 for f in "$REPO/Resources/config/dxmt.conf" "$REPO/Resources/Licenses/Recall/NOTICE" "$REPO/Resources/Licenses/Recall/LICENSE" "$REPO/LICENSE"; do
     [ -f "$f" ] || die "missing $f"
 done
@@ -63,6 +73,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers" "$APP/Contents/Resources/
 ditto "$BIN/HeartportApp" "$APP/Contents/MacOS/Heartport"
 ditto "$BIN/heartport" "$APP/Contents/Helpers/heartport"
 ditto "$TARBALL" "$APP/Contents/Resources/runtime.tar.gz"
+[ -f "$DESCRIPTOR" ] && ditto "$DESCRIPTOR" "$APP/Contents/Resources/runtime-archive.json"
 ditto "$REPO/Resources/config/dxmt.conf" "$APP/Contents/Resources/config/dxmt.conf"
 sed -e "s/@VERSION@/$VERSION/" -e "s/@BUILD@/$BUILD_NUMBER/" "$REPO/App/Resources/Info.plist" > "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
