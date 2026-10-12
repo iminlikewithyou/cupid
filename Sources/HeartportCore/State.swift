@@ -11,7 +11,9 @@ public struct AppState: Codable, Sendable, Equatable {
     public var prefixRuntime: String?
     /// Metal HUD on for `play` (menu toggle).
     public var hud: Bool?
-    /// The game in its own fullscreen Space (WINEMAC_NATIVE_FULLSCREEN); off when absent.
+    /// How the game fills the screen: a `FullscreenMode` raw value; "fill" when absent.
+    public var fullscreenMode: String?
+    /// Superseded by `fullscreenMode`; read only (true = "space"), cleared by `setFullscreen`.
     public var nativeFullscreen: Bool?
     /// sha256 of the TapTap installer the user accepted when it no longer matched the pin.
     public var acceptedInstallerSHA256: String?
@@ -27,6 +29,16 @@ public struct AppState: Codable, Sendable, Equatable {
     public var setupCompleteShown: Bool?
 
     public init() {}
+
+    /// The saved fullscreen mode.
+    public var fullscreen: FullscreenMode {
+        fullscreenMode.flatMap(FullscreenMode.init(rawValue:)) ?? (nativeFullscreen == true ? .space : .fill)
+    }
+
+    public mutating func setFullscreen(_ mode: FullscreenMode) {
+        fullscreenMode = mode.rawValue
+        nativeFullscreen = nil
+    }
 
     public static func load(_ paths: Paths) -> AppState {
         guard let data = try? Data(contentsOf: paths.stateFile) else { return AppState() }

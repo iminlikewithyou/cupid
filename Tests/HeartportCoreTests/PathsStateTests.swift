@@ -132,21 +132,46 @@ final class SessionTests: XCTestCase {
         XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""welcomed" : true"#))
     }
 
-    func testNativeFullscreenSettingDefaultsOffAndDrivesTheLaunch() throws {
+    func testFullscreenModeDefaultsToFillAndDrivesTheLaunch() throws {
         let root = try tempDir()
         defer { try? FileManager.default.removeItem(at: root) }
         let paths = Paths(dataRoot: root)
-        XCTAssertNil(AppState.load(paths).nativeFullscreen)
-        XCTAssertFalse(GameLauncher.Options(state: AppState.load(paths)).nativeFullscreen)
-        try AppState.update(paths) { $0.nativeFullscreen = true; $0.hud = true }
-        let state = AppState.load(paths)
-        XCTAssertEqual(state.nativeFullscreen, true)
-        XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self).contains(#""nativeFullscreen" : true"#))
+        XCTAssertNil(AppState.load(paths).fullscreenMode)
+        XCTAssertEqual(AppState.load(paths).fullscreen, .fill)
+        XCTAssertEqual(GameLauncher.Options(state: AppState.load(paths)).fullscreen, .fill)
+        try AppState.update(paths) { $0.setFullscreen(.fillNotifications); $0.hud = true }
+        var state = AppState.load(paths)
+        XCTAssertEqual(state.fullscreen, .fillNotifications)
+        XCTAssertTrue(String(decoding: try Data(contentsOf: paths.stateFile), as: UTF8.self)
+            .contains(#""fullscreenMode" : "fillNotifications""#))
         let options = GameLauncher.Options(state: state)
-        XCTAssertTrue(options.nativeFullscreen)
+        XCTAssertEqual(options.fullscreen, .fillNotifications)
         XCTAssertTrue(options.hud)
-        try AppState.update(paths) { $0.nativeFullscreen = false }
-        XCTAssertFalse(GameLauncher.Options(state: AppState.load(paths)).nativeFullscreen)
+        try AppState.update(paths) { $0.setFullscreen(.space) }
+        state = AppState.load(paths)
+        XCTAssertEqual(GameLauncher.Options(state: state).fullscreen, .space)
+        // An unknown value falls back to the default.
+        state.fullscreenMode = "sideways"
+        XCTAssertEqual(state.fullscreen, .fill)
+    }
+
+    func testOldNativeFullscreenReadsAsSpace() throws {
+        var state = try AppState.decode(Data(#"{"runtime":"r","nativeFullscreen":true}"#.utf8))
+        XCTAssertEqual(state.fullscreen, .space)
+        XCTAssertEqual(try AppState.decode(Data(#"{"nativeFullscreen":false}"#.utf8)).fullscreen, .fill)
+        // fullscreenMode wins, and choosing a mode drops the old field.
+        state.fullscreenMode = "fill"
+        XCTAssertEqual(state.fullscreen, .fill)
+        state.setFullscreen(.fillNotifications)
+        XCTAssertNil(state.nativeFullscreen)
+        XCTAssertFalse(String(decoding: try state.encoded(), as: UTF8.self).contains("nativeFullscreen"))
+    }
+
+    func testFullscreenArgumentValues() {
+        XCTAssertEqual(FullscreenMode(argument: "fill"), .fill)
+        XCTAssertEqual(FullscreenMode(argument: "notifications"), .fillNotifications)
+        XCTAssertEqual(FullscreenMode(argument: "space"), .space)
+        XCTAssertNil(FullscreenMode(argument: "Space"))
     }
 
     func testSetupCompleteShownRoundTripsAndDefaultsToAbsent() throws {

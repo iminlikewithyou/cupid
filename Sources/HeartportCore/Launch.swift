@@ -9,18 +9,18 @@ public struct GameLauncher: Sendable {
         public var wineDebug: String?
         public var inputStats: Bool
         public var windowTimeout: TimeInterval
-        /// The game in its own fullscreen Space (WINEMAC_NATIVE_FULLSCREEN).
-        public var nativeFullscreen: Bool
+        /// The "Fullscreen" setting.
+        public var fullscreen: FullscreenMode
         public init(hud: Bool = false, dxmtInfoLog: Bool? = nil, wineDebug: String? = nil,
-                    inputStats: Bool = false, windowTimeout: TimeInterval = 120, nativeFullscreen: Bool = false) {
+                    inputStats: Bool = false, windowTimeout: TimeInterval = 120, fullscreen: FullscreenMode = .fill) {
             self.hud = hud; self.dxmtInfoLog = dxmtInfoLog; self.wineDebug = wineDebug
             self.inputStats = inputStats; self.windowTimeout = windowTimeout
-            self.nativeFullscreen = nativeFullscreen
+            self.fullscreen = fullscreen
         }
 
-        /// The saved settings (HUD, fullscreen Space) from state.json.
+        /// The saved settings (HUD, fullscreen mode) from state.json.
         public init(state: AppState) {
-            self.init(hud: state.hud ?? false, nativeFullscreen: state.nativeFullscreen ?? false)
+            self.init(hud: state.hud ?? false, fullscreen: state.fullscreen)
         }
     }
 
@@ -73,11 +73,11 @@ public struct GameLauncher: Sendable {
 
         let env = LaunchEnvironment.Options(hud: options.hud, dxmtInfoLog: dxmtInfo, wineDebug: options.wineDebug,
                                             inputStatsPrefix: options.inputStats ? paths.logs.appendingPathComponent("input-stats") : nil,
-                                            nativeFullscreen: options.nativeFullscreen)
+                                            fullscreen: options.fullscreen)
         let wine = Wine(paths: paths, options: env)
         let started = Date()
         let pid = try wine.spawn(Self.wineArguments, cwd: paths.gameDir, log: gameLog)
-        Logs.append(paths, "play: wine pid \(pid) hud=\(options.hud) dxmtInfo=\(dxmtInfo) fullscreenSpace=\(options.nativeFullscreen)")
+        Logs.append(paths, "play: wine pid \(pid) hud=\(options.hud) dxmtInfo=\(dxmtInfo) fullscreen=\(options.fullscreen.rawValue)")
         if dxmtInfo { fm.createFile(atPath: marker.path, contents: nil) }
         try AppState.update(paths) { $0.lastLaunch = ISO8601DateFormatter().string(from: started) }
         guard waitForWindow else { return Result(winePID: pid, game: nil, window: nil, log: gameLog) }

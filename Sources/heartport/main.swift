@@ -11,7 +11,7 @@ Commands:
   setup [--step runtime|prefix|taptap|all]   Install what is missing (default: all)
         [--archive PATH] [--repair] [--no-wait] [--wait SECONDS] [--accept-new-installer]
   install-game [--no-wait] [--wait SECONDS]  Open TapTap and follow the game download
-  play [--hud|--no-hud] [--fullscreen-space|--no-fullscreen-space] [--no-wait] [--dxmt-info]
+  play [--hud|--no-hud] [--fullscreen fill|notifications|space] [--no-wait] [--dxmt-info]
        [--wine-debug SPEC] [--input-stats]
   stop [--yes]                               End every Wine process (wineserver -k)
   status [--json] [--verify]                 Report runtime, prefix, TapTap, game, session
@@ -24,10 +24,9 @@ Commands:
 The data folder is ~/Library/Application Support/Heartport (override: --data or HEARTPORT_DATA_ROOT).
 """
 
-let valued: Set<String> = ["data", "step", "archive", "wait", "lines", "name", "wine-debug"]
+let valued: Set<String> = ["data", "step", "archive", "wait", "lines", "name", "wine-debug", "fullscreen"]
 let allowedFlags: Set<String> = ["help", "json", "verify", "hud", "no-hud", "no-wait", "yes", "repair",
-                                 "accept-new-installer", "dxmt-info", "input-stats", "path",
-                                 "fullscreen-space", "no-fullscreen-space"]
+                                 "accept-new-installer", "dxmt-info", "input-stats", "path"]
 
 // MARK: output helpers
 
@@ -289,8 +288,13 @@ struct CLI {
         if args.has("dxmt-info") { options.dxmtInfoLog = true }
         options.wineDebug = args.options["wine-debug"]
         options.inputStats = args.has("input-stats")
-        options.nativeFullscreen = args.has("fullscreen-space") ? true : args.has("no-fullscreen-space") ? false
-            : (state.nativeFullscreen ?? false)
+        options.fullscreen = state.fullscreen
+        if let value = args.options["fullscreen"] {
+            guard let mode = FullscreenMode(argument: value) else {
+                throw fail("--fullscreen takes fill, notifications, or space (got \(value))")
+            }
+            options.fullscreen = mode
+        }
         if args.has("hud") || args.has("no-hud") { try AppState.update(paths) { $0.hud = options.hud } }
         let result = try GameLauncher(paths: paths).play(options, waitForWindow: !args.has("no-wait"), log: { say("  " + $0) })
         say("Started Heartopia (wine pid \(result.winePID)); log: \(result.log.path)")

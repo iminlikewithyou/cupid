@@ -59,13 +59,29 @@ final class EnvironmentTests: XCTestCase {
         XCTAssertEqual(env["WINEMAC_APP_ICON"], icon.path)
         XCTAssertEqual(env["WINEMAC_APP_NAME"], "Heartopia")
         XCTAssertNil(env["WINEMAC_NATIVE_FULLSCREEN"])
+        XCTAssertNil(env["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
         // An inherited value never survives (WINE* is stripped), with or without the icon.
-        let inherited = ["WINEMAC_APP_ICON": "/tmp/x.icns", "WINEMAC_APP_NAME": "x", "WINEMAC_NATIVE_FULLSCREEN": "other.exe"]
+        let inherited = ["WINEMAC_APP_ICON": "/tmp/x.icns", "WINEMAC_APP_NAME": "x", "WINEMAC_NATIVE_FULLSCREEN": "other.exe",
+                         "WINEMAC_FULLSCREEN_NORMAL_LEVEL": "other.exe"]
         XCTAssertEqual(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_APP_ICON"], icon.path)
         XCTAssertNil(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"])
-        XCTAssertEqual(LaunchEnvironment.build(paths: p, options: .init(nativeFullscreen: true),
-                                               inherited: inherited)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        XCTAssertNil(LaunchEnvironment.build(paths: p, inherited: inherited)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
         XCTAssertNil(LaunchEnvironment.build(paths: paths, inherited: inherited)["WINEMAC_APP_ICON"])
+    }
+
+    func testFullscreenModes() {
+        let p = Paths(dataRoot: URL(fileURLWithPath: "/tmp/heartport-fullscreen-test"), runtimeVersion: "r")
+        let inherited = ["WINEMAC_NATIVE_FULLSCREEN": "other.exe", "WINEMAC_FULLSCREEN_NORMAL_LEVEL": "other.exe"]
+        func env(_ mode: FullscreenMode) -> [String: String] {
+            LaunchEnvironment.build(paths: p, options: .init(fullscreen: mode), inherited: inherited)
+        }
+        XCTAssertEqual(LaunchEnvironment.Options().fullscreen, .fill)
+        XCTAssertNil(env(.fill)["WINEMAC_NATIVE_FULLSCREEN"])
+        XCTAssertNil(env(.fill)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
+        XCTAssertNil(env(.fillNotifications)["WINEMAC_NATIVE_FULLSCREEN"])
+        XCTAssertEqual(env(.fillNotifications)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"], "xdt.exe")
+        XCTAssertEqual(env(.space)["WINEMAC_NATIVE_FULLSCREEN"], "xdt.exe")
+        XCTAssertNil(env(.space)["WINEMAC_FULLSCREEN_NORMAL_LEVEL"])
     }
 
     func testInheritedVariablesAreStripped() {

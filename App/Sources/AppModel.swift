@@ -47,7 +47,7 @@ final class AppModel: ObservableObject {
     /// The last informational result (repair summary, "TapTap is not installed yet", ...).
     @Published var notice: String?
     @Published private(set) var hud = false
-    @Published private(set) var nativeFullscreen = false
+    @Published private(set) var fullscreen = FullscreenMode.fill
     /// Seconds left in the TapTap download, once the rate is known.
     @Published private(set) var downloadETA: TimeInterval?
     private var downloadRate = DownloadRate()
@@ -132,7 +132,7 @@ final class AppModel: ObservableObject {
         notice = preview.notice
         downloadETA = preview.eta
         hud = preview.report?.state.hud ?? false
-        nativeFullscreen = preview.report?.state.nativeFullscreen ?? false
+        fullscreen = preview.report?.state.fullscreen ?? .fill
         previewHasLogs = preview.hasLogs
         freeBytes = preview.freeBytes
         welcome = preview.welcome
@@ -206,7 +206,7 @@ final class AppModel: ObservableObject {
         // and Download with it (fresh run 3). The operation's completion refreshes.
         if activity == nil || phase == nil { phase = new.phase }
         hud = new.state.hud ?? false
-        nativeFullscreen = new.state.nativeFullscreen ?? false
+        fullscreen = new.state.fullscreen
         freeBytes = Self.availableBytes(near: paths.dataRoot)
         welcome = !welcomeDismissed && (phase?.needsWelcome(runtimeInstalled: new.runtime.installedVersion != nil,
                                                             welcomed: new.state.welcomed == true) ?? false)
@@ -718,11 +718,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func setNativeFullscreen(_ on: Bool) {
-        if previewing { nativeFullscreen = on; return }
+    func setFullscreen(_ mode: FullscreenMode) {
+        if previewing { fullscreen = mode; return }
         do {
-            try AppState.update(paths) { $0.nativeFullscreen = on }
-            nativeFullscreen = on
+            try AppState.update(paths) { $0.setFullscreen(mode) }
+            fullscreen = mode
         } catch {
             failure = "Could not save the setting: \(Self.message(error))"
         }

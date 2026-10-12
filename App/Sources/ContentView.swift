@@ -802,12 +802,28 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Section {
-                Toggle("Fullscreen Space", isOn: Binding(get: { model.nativeFullscreen }, set: { model.setNativeFullscreen($0) }))
+                Picker("Fullscreen", selection: Binding(get: { model.fullscreen }, set: { model.setFullscreen($0) })) {
+                    ForEach(FullscreenMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+            } header: {
+                Text("Fullscreen")
             } footer: {
-                Text("Puts Heartopia in its own Space, so notifications, Mission Control, and app switching work as they do for Mac games. The strip beside the camera stays black. Takes effect the next time the game starts.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Every option's text is laid out (only the selected one shows) so the window
+                // keeps its height when the choice changes.
+                ZStack(alignment: .topLeading) {
+                    ForEach(FullscreenMode.allCases, id: \.self) { mode in
+                        Text(mode.detail + " Takes effect the next time the game starts.")
+                            .opacity(mode == model.fullscreen ? 1 : 0)
+                            .accessibilityHidden(mode != model.fullscreen)
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
             Section {
                 LabeledContent("Data folder") {
@@ -829,5 +845,23 @@ struct SettingsView: View {
         .frame(width: Self.width)
         .fixedSize(horizontal: false, vertical: true)
         .tint(Brand.accent)
+    }
+}
+
+extension FullscreenMode {
+    var title: String {
+        switch self {
+        case .fill: "Fill the screen"
+        case .fillNotifications: "Fill the screen, show notifications"
+        case .space: "Own Space"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .fill: "Covers the whole screen, including beside the camera. Notifications stay hidden while you play."
+        case .fillNotifications: "Covers the whole screen and lets notification banners appear over the game."
+        case .space: "Puts Heartopia in its own Space, like a Mac game: notifications, Mission Control, and app switching work normally. The strip beside the camera stays black."
+        }
     }
 }
