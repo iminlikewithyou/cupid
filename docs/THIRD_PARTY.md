@@ -8,16 +8,21 @@ contributors). That grant covers only Cupid's own code. Everything below keeps i
 
 | What | Where in the app | License | Corresponding source |
 |---|---|---|---|
-| Recall 1.3.0 Wine runtime (`runtime.tar.gz`, sha256 `66ce2eab…3f92c34`), shipped byte-for-byte as Recall publishes it inside `Recall-1.3.0.dmg` | `Contents/Resources/runtime.tar.gz` | Per component, see below; Recall's own code Apache-2.0 (`Licenses/Recall-NOTICE`, `Licenses/Recall-LICENSE-Apache-2.0`) | https://github.com/AsherJN/recall (tag `v1.3.0`; release https://github.com/AsherJN/recall/releases/tag/v1.3.0). Its `docs/SOURCES.json` pins every input listed below. |
+| Cupid's Wine runtime (`runtime.tar.gz`, version `cupid-20261012.5`, sha256 `4637c85f…cf249f7a19`), built by Cupid from pinned upstream sources with `scripts/runtime/` (derived from Recall's pipeline) | `Contents/Resources/runtime.tar.gz`, with `runtime-archive.json` naming its version and sha256 | Per component, see below; Cupid's own code Apache-2.0 (`Licenses/PROJECT-APACHE-2.0`, `Licenses/PROJECT-NOTICE`, which credits Recall); Recall's NOTICE and licence also ship (`Licenses/Recall-NOTICE`, `Licenses/Recall-LICENSE-Apache-2.0`) | this repository (`scripts/runtime/`, `patches/recall/`, `patches/cupid/`) and the pinned upstream sources below |
 | License texts of everything in the runtime | `Contents/Resources/Licenses/` (the runtime's own `licenses/` tree, copied verbatim) | n/a | n/a |
 | `dxmt.conf` template | `Contents/Resources/config/dxmt.conf` | Cupid, Apache-2.0 | this repository |
 
-### Inside the runtime (Recall 1.3.0's documented inputs)
+### Inside the runtime
+
+The runtime is built from the same pinned inputs as Recall 1.3.0's runtime (Recall's
+`docs/SOURCES.json`, https://github.com/AsherJN/recall/tree/v1.3.0), plus Cupid's own Wine patches,
+FFmpeg, and GStreamer (below).
 
 | Component | Version / pin | License | Source |
 |---|---|---|---|
 | Wine (CodeWeavers' CrossOver sources; not the proprietary CrossOver app) | CrossOver 26.3.0 sources | LGPL-2.1-or-later (`Licenses/Wine-LGPL-2.1`) | https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.3.0.tar.gz |
 | Recall's Wine patches (canvas, mouselook, registry save, logging, Mac driver activation, portable directory) | as in Recall 1.3.0 `patches/` with sha256 pins in `docs/SOURCES.json` | LGPL-2.1-or-later (as Wine) | https://github.com/AsherJN/recall/tree/v1.3.0/patches |
+| Cupid's Wine patches (Mac driver Dock identity and fullscreen modes, shareable Media Foundation source-reader textures, minimal `Windows.System.DispatcherQueue`) | `patches/cupid/`, sha256-pinned in `scripts/runtime/build_portable_runtime.py` | LGPL-2.1-or-later (as Wine) | this repository, `patches/cupid/` |
 | DXMT (Direct3D 10/11 on Metal), NerRobDog's fork | commit `c5dc3a0dfe9108e667da43de871324bd298c9c02`, plus Recall's DXMT patches (v1-private, v1-performance, portable-metal, metalfx-upscaling) | LGPL-2.1-or-later (`Licenses/DXMT-LGPL-2.1`, `Licenses/DXMT-LICENSE`) | https://github.com/NerRobDog/dxmt and Recall's `patches/` |
 | DirectX-Headers (DXMT build input) | commit `9df86f2341616ef1888ae59919feaa6d4fad693d` | MIT (`Licenses/DirectX-Headers-COPYING`) | https://github.com/microsoft/DirectX-Headers |
 | NVIDIA NVAPI headers (DXMT submodule; DLSS/NVAPI stand-ins contain no NVIDIA code) | commit `d08488fcc82eef313b0464db37d2955709691e94` | MIT (`Licenses/NVAPI-MIT`) | https://github.com/NVIDIA/nvapi |
@@ -32,10 +37,10 @@ contributors). That grant covers only Cupid's own code. Everything below keeps i
 | MoltenVK | as above | Apache-2.0 (`Licenses/native/MoltenVK-LICENSE`) | https://github.com/KhronosGroup/MoltenVK |
 | SDL2 | 2.32.10 (sha256 `5f5993c5…ca5165`) | Zlib (`Licenses/native/sdl2/LICENSE.txt`) | https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz |
 | Soju runtime build recipe (referenced, not vendored) | commit `3a350b32bf906dd2a509b18c642a5a2676de022a` | GPL-3.0 (`Licenses/Soju-GPL-3.0`) | https://github.com/BCD1210/soju |
-| Apple `libd3dshared.dylib` and support components | as shipped in Recall 1.3.0 | Apple's license (`Licenses/apple/License.rtf`, `Acknowledgements.rtf`, `Read Me.rtf`); proprietary, not covered by Apache-2.0 or the Wine/DXMT licenses | not open source |
+| Apple `libd3dshared.dylib` and support components | as shipped in Recall 1.3.0, copied unchanged into the runtime | Apple's license (`Licenses/apple/License.rtf`, `Acknowledgements.rtf`, `Read Me.rtf`); proprietary, not covered by Apache-2.0 or the Wine/DXMT licenses | not open source |
 
-Cupid never modifies or re-signs any file of the runtime. On first run it extracts the
-archive, verifies every file against the runtime's `runtime.json` (sha256 and size), and adds
+When it installs the runtime, Cupid does not modify or re-sign any of its files. On first run it
+extracts the archive, verifies every file against the runtime's `runtime.json` (sha256 and size), and adds
 one generated file set, `lib/wine/game-mode/xdt.app` (a copy of the runtime's own Wine loader
 with a game Info.plist, identifier `app.cupid.heartopia`, ad hoc signed), so macOS Game
 Mode can engage.
@@ -44,12 +49,14 @@ Rosetta 2 is Apple's and is installed by the user from Apple; it is not bundled.
 
 ## Runtime build scripts (not bundled)
 
+These scripts produce the runtime above.
+
 `scripts/runtime/` holds copies of Recall's runtime build pipeline (https://github.com/AsherJN/recall,
 commit `61a3a59`, Apache-2.0, Copyright 2026 Joshua Asher Nelson; its NOTICE is
 `scripts/runtime/RECALL-NOTICE`), modified for Cupid as listed in `scripts/runtime/README.md`,
 and `patches/recall/` holds Recall's Wine and DXMT patches unchanged (LGPL-2.1-or-later, as the
 code they patch). A runtime built with them (`cupid-*`) carries the same third-party
-components as the Recall runtime above, from the same pinned sources, with Cupid's
+components as Recall 1.3.0's runtime, from the same pinned sources, with Cupid's
 `LICENSE` and a NOTICE crediting Recall in `licenses/` in place of Recall's, nvngx.dll signed
 with Cupid's own certificate, and no `Overwatch.app`.
 
@@ -97,3 +104,12 @@ enabled), which gst-libav links.
 
 Cupid is an independent community project, not affiliated with or endorsed by XD, TapTap,
 Apple, CodeWeavers or the Recall project. Product names are trademarks of their owners.
+
+## Fallback: Recall's prebuilt runtime
+
+`scripts/fetch-runtime.sh` can instead put Recall 1.3.0's prebuilt runtime (from
+`Recall-1.3.0.dmg`, tarball sha256 `66ce2eab…3f92c34`) in `Resources/runtime/`, and the `cupid`
+CLI fetches it the same way when no runtime archive is bundled. An app built with it ships that
+runtime byte-for-byte as Recall publishes it (Recall's own code Apache-2.0; components as in the
+table above, without Cupid's patches, FFmpeg, or GStreamer). Corresponding source:
+https://github.com/AsherJN/recall, tag `v1.3.0`.

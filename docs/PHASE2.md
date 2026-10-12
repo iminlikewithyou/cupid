@@ -5,7 +5,7 @@ the owner's M2 Max, macOS 26.6.2, unless marked "assumed".
 
 ## Outcome
 
-A signed macOS app, `Cupid.app`, that on first run installs Recall's runtime,
+A signed macOS app, `Cupid.app`, that on first run installs its bundled runtime,
 builds a Wine prefix, installs the TapTap Global client, downloads Heartopia, and from
 then on launches the game directly with the settings below. Its window shows only
 setup states. Nothing in it touches Steam.
@@ -19,12 +19,13 @@ Cupid/                                  Swift package + app sources
 ├── Sources/cupid/                      CLI: setup | play | status | stop | update | uninstall | logs
 ├── App/                                   AppKit/SwiftUI shell (thin)
 ├── Resources/
-│   ├── runtime/                           NOT in git: fetched by scripts/fetch-runtime.sh
+│   ├── runtime/                           NOT in git: runtime.tar.gz + runtime-archive.json from scripts/runtime
 │   ├── config/dxmt.conf                   [xdt.exe] profile template
 │   └── Licenses/
+├── patches/                               recall/ (Recall's Wine and DXMT patches), cupid/ (Cupid's Wine patches)
 ├── scripts/
-│   ├── fetch-runtime.sh                   Recall DMG -> runtime.tar.gz, sha256-pinned, manifest-verified
-│   ├── make-game-mode-app.py              from Recall's scripts/game_mode_app.py
+│   ├── runtime/                           builds Cupid's Wine + DXMT runtime from pinned sources
+│   ├── fetch-runtime.sh                   fallback: Recall 1.3.0's prebuilt runtime, sha256-pinned
 │   └── build-app.sh                       bundle, codesign (ad hoc or Developer ID), DMG
 └── docs/
 ```
@@ -36,13 +37,21 @@ adopt an existing one rather than rebuild it.
 
 ## Runtime (verified)
 
-- Source: Recall 1.3.0 DMG, `https://github.com/AsherJN/recall/releases/download/v1.3.0/Recall-1.3.0.dmg`.
-  Mount read-only, copy `Recall.app/Contents/Resources/runtime.tar.gz`
-  (sha256 `66ce2eabdbe14572d4bcb485321570bdd1128647aa64f6111642f9f073f92c34`), extract,
-  verify every entry of `runtime.json` (sha256 and bytes), refuse unlisted files. Never
-  modify or re-sign any Mach-O in it. Copy with `ditto`.
+- Source: Cupid's own runtime (`cupid-20261012.5`), built from pinned sources by
+  `scripts/runtime/` (Recall's pipeline, adapted) with Recall's Wine and DXMT patches
+  (`patches/recall/`), Cupid's Wine patches (`patches/cupid/`), FFmpeg, and GStreamer. The app
+  bundles `runtime.tar.gz` with `runtime-archive.json` (version, sha256, minimum macOS);
+  `Paths.defaultRuntimeVersion` comes from that descriptor. Install: extract, verify every
+  entry of `runtime.json` (sha256 and bytes), refuse unlisted files. Never modify or re-sign
+  any Mach-O in it. Copy with `ditto`.
+- Fallback: Recall 1.3.0's prebuilt runtime `phase2-20261007.3` from
+  `https://github.com/AsherJN/recall/releases/download/v1.3.0/Recall-1.3.0.dmg`
+  (`Recall.app/Contents/Resources/runtime.tar.gz`, sha256
+  `66ce2eabdbe14572d4bcb485321570bdd1128647aa64f6111642f9f073f92c34`), fetched by
+  `scripts/fetch-runtime.sh` or by the CLI when no archive is bundled. It has none of Cupid's
+  patches, GStreamer, or FFmpeg. `scripts/build-app.sh` checks this pin against this file.
 - Add `lib/wine/game-mode/xdt.app` generated from the runtime's own loader by
-  `make-game-mode-app.py` (identifier `app.cupid.heartopia`, name Heartopia,
+  `GameModeBundle` (identifier `app.cupid.heartopia`, name Heartopia,
   category `public.app-category.simulation-games`, ad hoc signed until a Developer ID
   exists). `codesign --verify --strict --deep` must pass.
   Bundle version 2 (`CupidBundleVersion`) adds `CFBundleDisplayName` Heartopia and a
@@ -52,9 +61,9 @@ adopt an existing one rather than rebuild it.
   bundle, or one made before xdt.exe existed, is regenerated at setup or before the next
   launch (`GameModeBundle.staleReason`). Unverified: winemac may replace the Dock name and
   icon at runtime.
-- Licenses: ship Recall's `licenses/` tree plus Recall's NOTICE and Apache-2.0 text, as
-  MacGames does. Corresponding sources are Recall's published ones; link them in
-  `docs/THIRD_PARTY.md`.
+- Licenses: ship the runtime's `licenses/` tree plus Recall's NOTICE and Apache-2.0 text and
+  Cupid's LICENSE. Corresponding sources are this repository's build scripts and patches and
+  the pinned upstream sources; `docs/THIRD_PARTY.md` lists them.
 
 ## Prefix setup (verified)
 
@@ -209,16 +218,18 @@ Stop: `wineserver -k` then `wineserver -w`.
 The game opens the default browser via Wine's winebrowser and completes a loopback
 callback. No app involvement. Document: Chrome may ask to allow local network access.
 
-## Known gaps (do not block Phase 2)
+## Known gaps
 
-- A blank two-button dialog appears at every launch before the menu; the blue (right)
-  button dismisses it. Likely embedded web content. Leave it; Phase 3 investigates.
-- Cutscene video is black (H.264 via Media Foundation, no decoder backend in this Wine).
-  Phase 3: build `winedmo` against ffmpeg.
-- Notch band: the engine renders 1728x1080 inside the 1728x1117 window, leaving 18-point
-  bars. Phase 3: Mac driver change reporting the safe area as the screen.
-- Cursor renders at 1x with Retina off. Cosmetic.
+- The TapTap installer has no silent mode under Wine; the player clicks through it.
+- The cursor renders at 1x with Retina off. Cosmetic.
 - Raw mouse path is not needed for this game (visible-cursor camera drag, no warps).
+
+Resolved since the first version of this brief: the blank two-button dialog (the XD SDK
+agreement; it had no text because the prefix had no Arial in `windows\Fonts`, fixed by the
+font links above, with `wine-coremessaging-dispatcher-queue.patch` for the
+`Windows.System.DispatcherQueue` it asks for), black cutscene video (FFmpeg and GStreamer in
+the runtime, and `wine-mfreadwrite-shared-textures.patch` for Unity's shared textures), and
+the bars beside the notch (the "Fill the screen" fullscreen modes cover the whole panel).
 
 ## Process detection
 
@@ -233,8 +244,12 @@ reference implementation and may be re-implemented, not copied (PolyForm license
 - One window, states: Rosetta check, runtime install, prefix setup, TapTap install
   (instructions + "I've installed it"), game download (progress), ready. Then every open
   of the app launches the game and shows nothing unless something fails.
-- Menu: Play, Update game, Reset graphics, Metal HUD toggle, Show logs, Repair, Uninstall.
-- Settings persisted in `state.json`.
+- Menu (Cupid): About Cupid (versions, credits, Show Licences), Settings…, Play, Update Game,
+  Reset Graphics…, Show Logs, Repair…, Uninstall….
+- Settings window: Fullscreen (three modes), Performance overlay (Metal HUD), Data folder.
+  Persisted in `state.json`.
+- Holding Option while opening the app skips the auto-launch and shows the window. The app
+  quits when the game exits normally while its window is hidden; a crash shows the window.
 
 ## Tests
 

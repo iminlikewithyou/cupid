@@ -133,9 +133,8 @@ scripts/build-app.sh [--dmg]   # build/Cupid.app, ad hoc signed; --dmg adds buil
   from `artifacts/<version>/` into `Resources/runtime/`. The script checks the archive against
   the sha256 in `runtime-archive.json`.
 - **Recall's runtime**: `scripts/fetch-runtime.sh` downloads Recall 1.3.0's DMG and extracts
-  its prebuilt runtime, both sha256-pinned. An app built with it starts the game, but has none
-  of Cupid's patches, GStreamer, or FFmpeg: no video, no fullscreen modes, and the Dock shows
-  the exe's name.
+  its prebuilt runtime, both sha256-pinned. An app built with it starts the game but has none
+  of Cupid's patches, GStreamer, or FFmpeg.
 
 `build-app.sh --identity "Developer ID Application: ..."` signs with a real identity instead of
 ad hoc.
@@ -169,7 +168,8 @@ Working:
 - Playing, with macOS Game Mode, the browser sign-in, and the game's agreement dialog.
 - The logo video and cutscenes.
 - All three fullscreen modes.
-- Updates: Heartopia's own updates go through TapTap, which **Update Game** opens.
+- Updates: Heartopia patches itself when it starts; TapTap client updates and larger game
+  updates go through **Update Game**.
 
 Not done:
 
@@ -179,7 +179,7 @@ Not done:
 
 Known limitations:
 
-- TapTap's installer has no silent mode under Wine, so its clicks are yours.
+- TapTap's installer has no silent mode, so you click through it yourself.
 - The mouse cursor is drawn at 1x, slightly soft, because Retina mode is off for the game.
 
 ## Licence

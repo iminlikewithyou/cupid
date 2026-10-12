@@ -23,8 +23,8 @@ driver behaves exactly as Recall's. Cupid sets them for every Wine process (docs
 launch contract). The other two change behaviour for every program (see below).
 
 The patches are `git diff`s made against a copy of the folder they change as the earlier patches
-leave it. To change one: copy that folder into a scratch git repository, commit, apply the earlier
-Cupid patches and commit, make the change, `git diff` it into the patch file, update its
+leave it. To change one: copy that folder into a separate, temporary git repository, commit,
+apply the earlier Cupid patches and commit, make the change, `git diff` it into the patch file, update its
 sha256 in `CUPID_PATCHES` and rerun the Wine step.
 
 ## wine-winemac-dock-identity.patch
@@ -49,7 +49,7 @@ looks oversized next to other Dock icons) win in the Dock.
 
 The Dock tile's hover label is **not** this name: for a bundled application the Dock shows the
 bundle's display name, which is its folder name (`xdt`) unless the bundle carries a localized
-display name. Iteration 5 checked it with test programs: LSDisplayName set before or after the
+display name. Test programs showed this: LSDisplayName set before or after the
 process becomes regular, toggling the activation policy, and LaunchServices' `CFBundleName` item
 all leave the label alone (System Events' Dock item name, which is the hover label, stays the
 executable's or bundle's file name). So Cupid's `GameModeBundle` (core, bundle version 3)
