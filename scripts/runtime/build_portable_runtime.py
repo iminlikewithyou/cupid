@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PATCHES_DIR = ROOT / 'patches/recall'
 TOOLCHAINS = ROOT.parent / 'mactopia-runtime/toolchains'
 PREFIX_MAP = '/build/heartport'
-CONFIGURATION = 'vulkan-sdl2-ffmpeg-enabled-v1\n'
+CONFIGURATION = 'vulkan-sdl2-ffmpeg-gstreamer-enabled-v1\n'
 SOJU = '3a350b32bf906dd2a509b18c642a5a2676de022a'
 INPUTS = {
     'wine.tar.gz': ('https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.3.0.tar.gz', 'ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872'),
@@ -199,7 +199,7 @@ def build(work, tools, headers, jobs):
                 or configuration.read_text() != CONFIGURATION):
             run(['/usr/bin/arch', '-x86_64', wine / 'configure', '--prefix=/usr/local',
                  '--enable-archs=i386,x86_64', '--without-x', '--disable-tests',
-                 '--without-gstreamer', '--with-vulkan',
+                 '--with-gstreamer', '--with-vulkan',
                  'FREETYPE_CFLAGS=-I' + str(deps / 'include/freetype2'),
                  'FREETYPE_LIBS=-L' + str(deps / 'lib') + ' -lfreetype',
                  'GNUTLS_CFLAGS=-I' + str(headers),
@@ -210,6 +210,12 @@ def build(work, tools, headers, jobs):
                  'SDL2_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lSDL2',
                  'FFMPEG_CFLAGS=-I' + str(work / 'clean-deps/include'),
                  'FFMPEG_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lavutil -lavformat -lavcodec',
+                 # Heartport: GStreamer (clean-deps, build_portable_dependencies.py) for
+                 # winegstreamer, Wine's Media Foundation and DirectShow decoders.
+                 'GSTREAMER_CFLAGS=' + ' '.join('-I' + str(work / 'clean-deps' / d) for d in
+                     ('include/gstreamer-1.0', 'include/glib-2.0', 'lib/glib-2.0/include')),
+                 'GSTREAMER_LIBS=-L' + str(work / 'clean-deps/lib') + ' -lgstvideo-1.0 -lgstaudio-1.0'
+                     ' -lgsttag-1.0 -lgstbase-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0',
                  'LDFLAGS=-Wl,-headerpad,0x1000 -L' + str(deps / 'lib'), 'CFLAGS=' + flags,
                  'CROSSCFLAGS=' + flags,
                  'CC=/usr/bin/clang -arch x86_64', 'CXX=/usr/bin/clang++ -arch x86_64'],
@@ -251,6 +257,8 @@ def build(work, tools, headers, jobs):
         run(['make', '-j' + str(jobs), 'LDFLAGS=-Wl,-headerpad,0x1000 -L' + str(deps / 'lib'),
              'i386_CFLAGS=' + flags, 'x86_64_CFLAGS=' + flags],
             cwd=builddir, env=env, stdout=log, stderr=subprocess.STDOUT)
+        if not (builddir / 'dlls/winegstreamer/winegstreamer.so').is_file():
+            raise RuntimeError('winegstreamer.so was not built (GStreamer not found by configure)')
         padding.write_text('0x1000\n')
         cross_paths.write_text(flags + '\n')
         nested_paths.write_text(flags + '\n')
@@ -265,7 +273,7 @@ def build(work, tools, headers, jobs):
               'v1_patches': V1_PATCHES,
               'gnutls_header_sha256': sha(headers / 'gnutls/gnutls.h'),
               'minimum_macos': '26.0', 'runtime_scope': 'Wine + FreeType built from source; DXMT assembly is separate',
-              'without_vulkan': False, 'without_gstreamer': True, 'with_sdl2': True, 'with_ffmpeg': True,
+              'without_vulkan': False, 'without_gstreamer': False, 'with_sdl2': True, 'with_ffmpeg': True,
               'native_linker_header_padding': '0x1000',
               'windows_compiler_paths_remapped': True,
               'driver_matches_accepted_patch': True}
