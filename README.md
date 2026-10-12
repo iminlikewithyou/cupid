@@ -8,7 +8,11 @@ open Cupid. It's that simple.
 1. Go to the [latest release](https://github.com/iminlikewithyou/cupid/releases/latest).
 2. Under **Assets**, click the file ending in `.dmg` to download it.
 3. Open the downloaded file and drag **Cupid** into the **Applications** folder next to it.
-4. Open Cupid from Applications and follow the steps in its window.
+4. Open Cupid from Applications. The first time, macOS says it could not verify Cupid and
+   will not open it. Close that message, open **System Settings**, go to **Privacy &
+   Security**, scroll down, and click **Open Anyway** next to Cupid. It opens normally from
+   then on.
+5. Follow the steps in Cupid's window.
 
 You need a Mac with Apple silicon (M1 or later) running macOS 26 or later, Rosetta 2 (Cupid
 helps you install it if it is missing), and about 17 GB of free space.
