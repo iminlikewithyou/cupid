@@ -23,13 +23,33 @@ INPUTS = {
     'libinotify-20240724.tar.gz': ('https://github.com/libinotify-kqueue/libinotify-kqueue/releases/download/20240724/libinotify-20240724.tar.gz', '5cc3fb7af407b17b7daa871cc98bb882716c4b5c296fadfb66bfe86c37cc599c'),
     'MoltenVK-macos.tar': ('https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.9/MoltenVK-macos.tar', '93369586b116bc027ef7121fd713ff32fcd856febcb4622b6ba527edcadd68ea'),
     'SDL2-2.32.10.tar.gz': ('https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz', '5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165'),
+    # Heartport: FFmpeg for Wine's winedmo (Media Foundation demuxing). sha256 as Homebrew's
+    # ffmpeg@7 formula pins the same ffmpeg.org URL (ffmpeg.org publishes GPG signatures only).
+    'ffmpeg-7.1.5.tar.xz': ('https://ffmpeg.org/releases/ffmpeg-7.1.5.tar.xz', 'de668509caf9e35e3cd162473441fdb29538c6d96ed080292b3cf9e6fc5d558f'),
 }
+# Archive name prefix of each dependency that --only can build alone.
+ONLY = {'sdl2': 'SDL2-', 'ffmpeg': 'ffmpeg-'}
 # Wine's winebus reads every controller that is not a PlayStation one through SDL
 # (Xbox pads among them). Only the controller subsystems are built. Apple's
 # GameController (MFi) backend stays out: it claims Xbox pads and delivers their
 # input only to a foreground app, never to Wine's background device host.
 SDL2_OPTIONS = ['--disable-joystick-mfi', '--disable-audio', '--disable-video', '--disable-render',
                 '--disable-sensor', '--disable-power', '--disable-hidapi-libusb']
+# Heartport: FFmpeg, LGPL only (no --enable-gpl/--enable-nonfree, no external libraries:
+# --disable-autodetect, then only the system zlib for compressed MP4 headers). Wine's winedmo
+# demuxes MP4/MOV, AVI, WAV, ASF, MPEG-PS and MP3 through libavformat and needs the
+# h264_mp4toannexb bitstream filter; the decoders and parsers cover H.264, HEVC, AAC and MP3.
+# No x86 assembly (no nasm in the toolchain), no programs but ffprobe (a build-time check
+# tool, never shipped: the assembler copies libraries only).
+FFMPEG_OPTIONS = ['--disable-autodetect', '--enable-zlib', '--disable-x86asm', '--disable-doc',
+                  '--disable-programs', '--enable-ffprobe', '--disable-avdevice', '--disable-avfilter',
+                  '--disable-postproc', '--disable-network', '--disable-everything',
+                  '--enable-protocol=file',
+                  '--enable-demuxer=mov,avi,wav,asf,mpegps,mpegvideo,mp3,aac,h264,hevc',
+                  '--enable-parser=h264,hevc,aac,mpegaudio,mpegvideo',
+                  '--enable-decoder=h264,hevc,aac,mp3,mp3float',
+                  '--enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,null',
+                  '--enable-swscale', '--enable-swresample']
 WINE_SHA = 'ac99c8ca4b3848f3e81784135f023df266b61c2345726ea55a50b3e030dd6872'
 
 
@@ -44,7 +64,7 @@ def build(work, jobs, only=None):
     prefix = work / 'clean-deps'; prefix.mkdir(exist_ok=True)
     logs = work / 'build-logs'; logs.mkdir(exist_ok=True)
     for name, (url, expected) in INPUTS.items():
-        if only == 'sdl2' and not name.startswith('SDL2-'): continue
+        if only and not name.startswith(ONLY[only]): continue
         archive = work / 'downloads' / name
         if not archive.exists():
             part = Path(str(archive) + '.part')
@@ -85,6 +105,7 @@ def build(work, jobs, only=None):
         # compatibility path to retain the runtime's 26.0 deployment target.
         ('inotify', source / 'libinotify-20240724', ['ac_cv_func_fdclosedir=no']),
         ('sdl2', source / 'SDL2-2.32.10', SDL2_OPTIONS),
+        ('ffmpeg', source / 'ffmpeg-7.1.5', FFMPEG_OPTIONS),
     ]
     selected = [c for c in components if only in (None, c[0])]
     old_proof = work / 'native-build-proof.json'
@@ -102,7 +123,21 @@ def build(work, jobs, only=None):
             changed = ((marker.exists() and json.loads(marker.read_text()) != configuration) or
                        (name in previous_options and previous_options[name] != options))
             if changed and (directory / 'Makefile').exists(): run(['make', 'clean'])
-            if changed or not (directory / 'config.status').exists():
+            if name == 'ffmpeg':
+                # FFmpeg's configure is not autoconf: no --host, and it takes the compiler and
+                # flags as options rather than from the environment. --install-name-dir keeps the
+                # absolute prefix like the other libraries; the assembler rewrites it to @rpath.
+                if changed or not (directory / 'ffbuild/config.mak').exists():
+                    run(['/usr/bin/arch', '-x86_64', src / 'configure', '--prefix=' + str(prefix),
+                         '--enable-shared', '--disable-static', '--arch=x86_64', '--target-os=darwin',
+                         '--cc=' + env['CC'], '--cxx=' + env['CXX'], '--extra-cflags=' + env['CFLAGS'],
+                         '--extra-ldflags=' + env['LDFLAGS'], '--pkg-config=false'] + options)
+                # The libraries embed the configure command line (avutil_configuration() and
+                # friends); keep the workspace path out of it, as the prefix map does for sources.
+                config = directory / 'config.h'
+                text = config.read_text()
+                if str(work) in text: config.write_text(text.replace(str(work), '/build/heartport'))
+            elif changed or not (directory / 'config.status').exists():
                 run(['/usr/bin/arch', '-x86_64', src / 'configure', '--prefix=' + str(prefix), '--host=x86_64-apple-darwin', '--enable-shared', '--disable-static'] + options)
             marker.write_text(json.dumps(configuration, indent=2) + '\n')
             run(['make', '-j' + str(jobs)])
@@ -116,6 +151,8 @@ def build(work, jobs, only=None):
     for name, src, _ in selected:
         target = licenses / name; target.mkdir(exist_ok=True)
         for p in src.iterdir():
+            # FFmpeg is built LGPL-only: its LICENSE.md and the LGPL 2.1 text, not the GPL ones.
+            if name == 'ffmpeg' and p.name not in ('LICENSE.md', 'COPYING.LGPLv2.1'): continue
             if p.is_file() and p.name.startswith(('COPYING', 'LICENSE', 'AUTHORS', 'NOTICE')): shutil.copy2(p, target / p.name)
     if only is None:
         shutil.copy2(source / 'MoltenVK/LICENSE', licenses / 'MoltenVK-LICENSE')
@@ -130,5 +167,5 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--workspace', type=Path, required=True)
     p.add_argument('--jobs', type=int, choices=range(1, 17), default=2)
-    p.add_argument('--only', choices=['sdl2'], help='Build only this dependency (it needs none of the others)')
+    p.add_argument('--only', choices=sorted(ONLY), help='Build only this dependency (it needs none of the others)')
     a = p.parse_args(); build(a.workspace.resolve(), a.jobs, a.only)
